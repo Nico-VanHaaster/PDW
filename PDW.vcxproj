@@ -46,11 +46,17 @@
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
     <GenerateManifest>false</GenerateManifest>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules />
+    <CodeAnalysisRuleAssemblies />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -154,6 +160,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="utils\Debug.cpp" />
+    <ClCompile Include="utils\messagequeue.cpp" />
     <ClCompile Include="utils\Ostype.cpp" />
     <ClCompile Include="utils\rs232.cpp" />
     <ClCompile Include="utils\smtp.cpp" />
@@ -181,6 +188,7 @@
     <ClInclude Include="Headers\toolbar.h" />
     <ClInclude Include="resrc1.h" />
     <ClInclude Include="utils\binary.h" />
+    <ClInclude Include="utils\messagequeue.h" />
     <ClInclude Include="utils\OSTYPE.H" />
     <ClInclude Include="utils\rs232.h" />
     <ClInclude Include="utils\smtp.h" />

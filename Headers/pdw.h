@@ -146,6 +146,15 @@ typedef struct
 
 	int  SMTP;						// SMTP-email
 
+	int MESSAGE_QUEUE = 1;
+	int mqPort = 5672;
+	char mqHostName[100] = "localhost";
+	char mqUsername[100] = "internal";
+	char mqPassword[100] = "iseeu5448!";
+	char mqVirtualHost[100] = "private";
+	char mqRoutingKey[100] = "pdw-pager";
+	char mqTopic[100] = "webnotify";
+
 	bool Trayed;					// TRUE if trayed
 
 	int comPortEnabled;

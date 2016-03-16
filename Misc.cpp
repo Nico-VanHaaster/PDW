@@ -17,6 +17,7 @@
 #include "headers\helper_funcs.h"
 #include "utils\binary.h"
 #include "utils\smtp.h"
+#include "utils\messagequeue.h"
 
 #define FILTER_PARAM_LEN	500
 #define MAXIMUM_GROUPSIZE	1000
@@ -48,7 +49,7 @@
 
 unsigned int bch[1025], ecs[25];     // error correction sequence
 
-int iMatch=-1, iAddrMatch=-1, iTextMatch=-1, iTextLength=0;
+int iMatch = -1, iAddrMatch = -1, iTextMatch = -1, iTextLength = 0;
 int iTextPositions[10], iTextLengths[10];
 
 int iCurrentCycle, iCurrentFrame;	// Current flex cycle / frame
@@ -57,18 +58,18 @@ int aGroupCodes[17][MAXIMUM_GROUPSIZE];
 int GroupFrame[17] = { -1, -1, -1, -1, -1, -1, -1, -1,
 					   -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 
-int iPanePos=0;								// PH: Current line position, used by Wordwrap
+int iPanePos = 0;								// PH: Current line position, used by Wordwrap
 int iLabelspace_Logfile[2];					// PH: # of spaces before label ([MONITOR] / [FILTER])
 
-int  iConvertingGroupcall=0;				// PH: Set with groupbit if converting a groupcall
-bool bMode_IDLE=true;						// PH: Set if not receiving data
+int  iConvertingGroupcall = 0;				// PH: Set with groupbit if converting a groupcall
+bool bMode_IDLE = true;						// PH: Set if not receiving data
 
 bool bMobitexReplace;						// PH: Set if a mobitex message needs to be replaced (replace.txt)
 char szMobitexReplace[256];					// PH: Contains mobitex replacement string (replace.txt)
 
-char aNumeric[17]={"0123456789*U -]["};		// contains numeric paging data format
+char aNumeric[17] = { "0123456789*U -][" };		// contains numeric paging data format
 
-bool bShown[2]  = { false, false };
+bool bShown[2] = { false, false };
 bool bLogged[3] = { false, false, false };
 
 char Current_MSG[9][MAX_STR_LEN];			// PH: Buffer for all message items
@@ -85,22 +86,22 @@ char Current_MSG[9][MAX_STR_LEN];			// PH: Buffer for all message items
 char Previous_MSG[2][9][MAX_STR_LEN];		// PH: Buffer for previous message items
 											// PH: [8]=last filtered messagetext
 
-unsigned long int iSecondsElapsed=0;
-unsigned long int aMessages[1000][3] = {0};	// PH: Array used for blocking messages
+unsigned long int iSecondsElapsed = 0;
+unsigned long int aMessages[1000][3] = { 0 };	// PH: Array used for blocking messages
 
-char szLogFileLine[MAX_STR_LEN+64];			// PH: Current Logfile line
+char szLogFileLine[MAX_STR_LEN + 64];			// PH: Current Logfile line
 char szSepfilenames[MAX_SEPFILES][MAX_PATH];// PH: Buffer for current separate filename and the sepfiles in current groupcall
 FILE* pSepFilterFiles[MAX_SEPFILES];
 extern char szWindowText[6][1000];
 extern char szFilenameDate[16];				// PH: Global buffer for date as filename
 
-BYTE message_color[MAX_STR_LEN+1];			// buffer for filter colors
+BYTE message_color[MAX_STR_LEN + 1];			// buffer for filter colors
 BYTE messageitems_colors[7];				// buffer for message items colors
-unsigned char message_buffer[MAX_STR_LEN+1];// buffer for message characters
-unsigned char mobitex_buffer[MAX_STR_LEN+1];// buffer for mobitex characters
-unsigned char rev_msg_buffer[MAX_STR_LEN+1];// required for logfile output
+unsigned char message_buffer[MAX_STR_LEN + 1];// buffer for message characters
+unsigned char mobitex_buffer[MAX_STR_LEN + 1];// buffer for mobitex characters
+unsigned char rev_msg_buffer[MAX_STR_LEN + 1];// required for logfile output
 
-int iMessageIndex=0;
+int iMessageIndex = 0;
 
 char *dsc_pchar;
 BYTE *dsc_pcolor;
@@ -122,13 +123,13 @@ void misc_debug_msg(char *msg)
 // Note: Used by Hebrew language which displays messages right to left.
 void reverse_msg_words(void)
 {
-	unsigned char *s = message_buffer; 
+	unsigned char *s = message_buffer;
 	int r;
 	int start_x, end_x;
 
 	int v = strlen((char *)s);
 
-	for (int loop=0; loop < v; loop++)
+	for (int loop = 0; loop < v; loop++)
 	{
 		if (in_lang_tbl(message_buffer[loop]) || isdigit(message_buffer[loop]))
 		{
@@ -137,11 +138,11 @@ void reverse_msg_words(void)
 			{
 				// If not a digit and not in language table then endof word/number.
 				// Allow control characters.
-				if (!in_lang_tbl(message_buffer[loop+1]))
+				if (!in_lang_tbl(message_buffer[loop + 1]))
 				{
-					if (message_buffer[loop+1] > 65) break;
+					if (message_buffer[loop + 1] > 65) break;
 				}
-				if (message_buffer[loop+1] == 0) break;
+				if (message_buffer[loop + 1] == 0) break;
 				loop++;
 			}
 			end_x = loop;
@@ -151,7 +152,7 @@ void reverse_msg_words(void)
 				r = 0;
 				while (end_x >= start_x) rev_msg_buffer[r++] = message_buffer[end_x--];
 				rev_msg_buffer[r] = 0;
-				r=0;
+				r = 0;
 
 				while (rev_msg_buffer[r] != 0)
 				{
@@ -166,7 +167,7 @@ void reverse_msg_words(void)
 // Passes string to filter buffer
 void display_show_str(PaneStruct *pane, char strin[])
 {
-	for (int x=0; ((strin[x] != 0) && (x < 256)); x++)
+	for (int x = 0; ((strin[x] != 0) && (x < 256)); x++)
 	{
 		display_show_char(pane, strin[x]);
 	}
@@ -175,7 +176,7 @@ void display_show_str(PaneStruct *pane, char strin[])
 // Passes string to "pane's" buffer.
 void display_show_strV2(PaneStruct *pane, char strin[])
 {
-	for (int x=0; ((strin[x] != 0) && (x < 256)); x++)
+	for (int x = 0; ((strin[x] != 0) && (x < 256)); x++)
 	{
 		build_show_line(pane, strin[x], 0);
 	}
@@ -193,7 +194,7 @@ void display_show_char(PaneStruct *pane, char cin)
 		}
 		else if ((cin > 0) && (cin < 32))
 		{
-			message_buffer[iMessageIndex] = cin+32;
+			message_buffer[iMessageIndex] = cin + 32;
 			mobitex_buffer[iMessageIndex] = cin;		// Keep original characters
 		}
 		else if ((cin > 126) && (cin != '»'))
@@ -217,8 +218,8 @@ void display_show_char(PaneStruct *pane, char cin)
 		{
 			cin = '?';	// PH: Display a questionmark instead of 'unknown' characters
 		}
-		else if ((cin >  0  && cin < 32 && cin != 10) &&
-				 (cin != 23 && cin != 4 && !Profile.monitor_acars && !Profile.monitor_mobitex))
+		else if ((cin > 0 && cin < 32 && cin != 10) &&
+			(cin != 23 && cin != 4 && !Profile.monitor_acars && !Profile.monitor_mobitex))
 		{
 			cin = '?';	// PH: Display a questionmark instead of 'unknown' characters
 		}
@@ -226,7 +227,7 @@ void display_show_char(PaneStruct *pane, char cin)
 	}
 	message_color[iMessageIndex] = pane->currentColor;
 
-	if (iMessageIndex < MAX_STR_LEN-1) iMessageIndex++;
+	if (iMessageIndex < MAX_STR_LEN - 1) iMessageIndex++;
 
 } // end of display_show_char
 
@@ -244,11 +245,11 @@ void build_show_line(PaneStruct *pane, char cin, int option)
 		display_line(pane); // terminate/display line/start new line.
 
 		// Get buffer pointers & set correct postion in buffers.
-		dsc_pchar  = pane->buff_char  + pane->Bottom*(LINE_SIZE+1);
-		dsc_pcolor = pane->buff_color + pane->Bottom*(LINE_SIZE+1);
+		dsc_pchar = pane->buff_char + pane->Bottom*(LINE_SIZE + 1);
+		dsc_pcolor = pane->buff_color + pane->Bottom*(LINE_SIZE + 1);
 
 		// Add spacing to continue message on next line in correct field.
-		for (int i=0; i<index; i++)
+		for (int i = 0; i < index; i++)
 		{
 			*dsc_pchar++ = ' ';
 			*dsc_pcolor++ = COLOR_MESSAGE;
@@ -257,14 +258,14 @@ void build_show_line(PaneStruct *pane, char cin, int option)
 		iPanePos = pane->currentPos;	// Get current pane position
 		return;
 	}
-	
+
 	// Get buffer pointers.
-	dsc_pchar  = pane->buff_char;
+	dsc_pchar = pane->buff_char;
 	dsc_pcolor = pane->buff_color;
 
 	// Get character/color.
-	dsc_pchar [pane->Bottom*(LINE_SIZE+1) + pane->currentPos] = cin;
-	dsc_pcolor[pane->Bottom*(LINE_SIZE+1) + pane->currentPos] = pane->currentColor;
+	dsc_pchar[pane->Bottom*(LINE_SIZE + 1) + pane->currentPos] = cin;
+	dsc_pcolor[pane->Bottom*(LINE_SIZE + 1) + pane->currentPos] = pane->currentColor;
 
 	// Increment line position.
 	pane->currentPos++;
@@ -277,14 +278,14 @@ void build_show_line(PaneStruct *pane, char cin, int option)
 			display_line(pane); // terminate/display line/start new line.
 
 			// Get buffer pointers & set correct postion in buffers.
-			dsc_pchar  = pane->buff_char  + pane->Bottom*(LINE_SIZE+1);
-			dsc_pcolor = pane->buff_color + pane->Bottom*(LINE_SIZE+1);
+			dsc_pchar = pane->buff_char + pane->Bottom*(LINE_SIZE + 1);
+			dsc_pcolor = pane->buff_color + pane->Bottom*(LINE_SIZE + 1);
 
 			// PH: If monitoring ACARS and no linefeed, ensure a correct spacing
 			if (Profile.monitor_acars) index += 16;
 
 			// Add spacing to continue message on next line in correct field.
-			for (int i=0; i<index; i++)
+			for (int i = 0; i < index; i++)
 			{
 				*dsc_pchar++ = ' ';
 				*dsc_pcolor++ = COLOR_MESSAGE;
@@ -302,13 +303,13 @@ void display_line(PaneStruct *pane)
 	RECT	rect;
 	unsigned int xx;
 	int	scroll_amt, iVscrollInc;
-	char *pchar  = pane->buff_char;
+	char *pchar = pane->buff_char;
 	BYTE *pcolor = pane->buff_color;
 
 	extern unsigned int iSelectionStartRow, iSelectionEndRow;
 
-	pchar [pane->Bottom*(LINE_SIZE+1) + pane->currentPos] = 0;
-	pcolor[pane->Bottom*(LINE_SIZE+1) + pane->currentPos] = COLOR_UNUSED;
+	pchar[pane->Bottom*(LINE_SIZE + 1) + pane->currentPos] = 0;
+	pcolor[pane->Bottom*(LINE_SIZE + 1) + pane->currentPos] = COLOR_UNUSED;
 
 	pane->currentPos = 0;
 	pane->Bottom++;
@@ -320,17 +321,17 @@ void display_line(PaneStruct *pane)
 		pane->Bottom--;
 
 		// scroll the buffer lines up 1 line
-		for (xx=0; xx<pane->Bottom; xx++)
+		for (xx = 0; xx < pane->Bottom; xx++)
 		{
-			memcpy(&pchar [xx*(LINE_SIZE+1)], &pchar [(xx+1)*(LINE_SIZE+1)], LINE_SIZE+1);
-			memcpy(&pcolor[xx*(LINE_SIZE+1)], &pcolor[(xx+1)*(LINE_SIZE+1)], LINE_SIZE+1);
+			memcpy(&pchar[xx*(LINE_SIZE + 1)], &pchar[(xx + 1)*(LINE_SIZE + 1)], LINE_SIZE + 1);
+			memcpy(&pcolor[xx*(LINE_SIZE + 1)], &pcolor[(xx + 1)*(LINE_SIZE + 1)], LINE_SIZE + 1);
 		}
 
-		pchar[xx*(LINE_SIZE+1) + 0]  = 0;
-		pcolor[xx*(LINE_SIZE+1) + 0] = COLOR_UNUSED;
+		pchar[xx*(LINE_SIZE + 1) + 0] = 0;
+		pcolor[xx*(LINE_SIZE + 1) + 0] = COLOR_UNUSED;
 		pane->iVscrollPos--;
 	}
-	pane->iVscrollMax = max(0,pane->Bottom - pane->cyLines);
+	pane->iVscrollMax = max(0, pane->Bottom - pane->cyLines);
 
 	// check if we need to scroll the display (i.e. are we at bottom?)
 	if (pane->Bottom == (pane->iVscrollPos + (pane->cyLines) + 1))
@@ -343,20 +344,20 @@ void display_line(PaneStruct *pane)
 		scroll_amt = cyChar * iVscrollInc;
 		ScrollWindow(pane->hWnd, 0, -scroll_amt, NULL, NULL);
 
-		rect.top	= (pane->cyLines - 1) * cyChar;
-		rect.bottom	= pane->cyClient;
-		rect.left	= 0;
-		rect.right	= pane->cxClient;
+		rect.top = (pane->cyLines - 1) * cyChar;
+		rect.bottom = pane->cyClient;
+		rect.left = 0;
+		rect.right = pane->cxClient;
 
 		InvalidateRect(pane->hWnd, &rect, TRUE);
 
 		SetScrollRange(pane->hWnd, SB_VERT, 0, pane->iVscrollMax, FALSE);
-		SetScrollPos  (pane->hWnd, SB_VERT,    pane->iVscrollPos, TRUE);
+		SetScrollPos(pane->hWnd, SB_VERT, pane->iVscrollPos, TRUE);
 
 		if (select_on && selected && (pane == select_pane))
 		{
 			iSelectionStartRow -= iVscrollInc;	// also scroll selection
-			iSelectionEndRow   -= iVscrollInc;
+			iSelectionEndRow -= iVscrollInc;
 
 			InvertSelection();
 			selected = 1;
@@ -364,10 +365,10 @@ void display_line(PaneStruct *pane)
 	}
 	else	// don't need to scroll display so just update
 	{
-		rect.top	= 0; // (pane->Bottom-1) * cyChar;  *Changed J.P*
-		rect.bottom	= pane->Bottom * cyChar;
-		rect.left	= 0;
-		rect.right	= pane->cxClient;
+		rect.top = 0; // (pane->Bottom-1) * cyChar;  *Changed J.P*
+		rect.bottom = pane->Bottom * cyChar;
+		rect.left = 0;
+		rect.right = pane->cxClient;
 
 		InvalidateRect(pane->hWnd, &rect, TRUE);
 	}
@@ -394,7 +395,7 @@ void AddAssignment(int assignedframe, int groupbit, int capcode)
 		GroupFrame[groupbit] = assignedframe;
 	}
 	if (iMessageIndex)
-	{	
+	{
 		message_buffer[iMessageIndex] = 0;		// terminate the buffer string
 		iMessageIndex = 0;
 	}
@@ -407,8 +408,8 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 	extern int nCount_Blocked;	// PH: To keep track of the number of blocked messages
 	extern int nCount_Missed[2];
 
-	int addresses=0;
-	char address[16]="";
+	int addresses = 0;
+	char address[16] = "";
 
 	message_buffer[iMessageIndex] = 0;		// terminate the buffer string
 
@@ -420,7 +421,7 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 
 			if (Profile.BlockDuplicate)
 			{
-				for (int nCapcode=1; nCapcode <= aGroupCodes[groupbit][CAPCODES_INDEX]; nCapcode++)
+				for (int nCapcode = 1; nCapcode <= aGroupCodes[groupbit][CAPCODES_INDEX]; nCapcode++)
 				{
 					addresses += aGroupCodes[groupbit][nCapcode];			// Make a sum of all capcodes
 				}
@@ -432,7 +433,7 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 				{
 					if (Profile.show_rejectblocked)
 					{
-						sprintf(szWindowText[5], "Blocked Duplicate GroupMessage : %i %s", 2029568+groupbit, message_buffer);
+						sprintf(szWindowText[5], "Blocked Duplicate GroupMessage : %i %s", 2029568 + groupbit, message_buffer);
 					}
 
 					if (Profile.BlockDuplicate & BLOCK_LOGFILE)
@@ -442,7 +443,7 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 						if ((pBlocked = fopen(szFile, "a")) != NULL)
 						{
 							Get_Date_Time();
-							fprintf(pBlocked, "%i %s %s  %s\n", 2029568+groupbit, szCurrentTime, szCurrentDate, message_buffer);
+							fprintf(pBlocked, "%i %s %s  %s\n", 2029568 + groupbit, szCurrentTime, szCurrentDate, message_buffer);
 							fclose(pBlocked);
 							pBlocked = NULL;
 						}
@@ -457,13 +458,13 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 					return;
 				}
 			}
-			iConvertingGroupcall=groupbit+1;
+			iConvertingGroupcall = groupbit + 1;
 
 			strcpy(Current_MSG[MSG_TYPE], " GROUP ");
 
 			CreateDateFilename("", NULL);		// Get current date to use as filename
 
-			for (int nCapcode=1; nCapcode <= aGroupCodes[groupbit][CAPCODES_INDEX]; nCapcode++)
+			for (int nCapcode = 1; nCapcode <= aGroupCodes[groupbit][CAPCODES_INDEX]; nCapcode++)
 			{
 				if (aGroupCodes[groupbit][nCapcode] == 9999999) strcpy(Current_MSG[MSG_CAPCODE], "???????");
 				else sprintf(Current_MSG[MSG_CAPCODE], "%07i", aGroupCodes[groupbit][nCapcode]);
@@ -479,7 +480,7 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 
 			GroupFrame[groupbit] = -1;
 
-			iConvertingGroupcall=0;		// PH: Reset for next groupmessage
+			iConvertingGroupcall = 0;		// PH: Reset for next groupmessage
 		}
 		else
 		{
@@ -496,15 +497,15 @@ void ConvertGroupcall(int groupbit, char *vtype, int capcode)
 
 void SortGroupCall(int groupbit)	// PH: Sort aGroupCodes[groupbit]
 {
-	for (int nCapcode=1; nCapcode <= aGroupCodes[groupbit][CAPCODES_INDEX]; nCapcode++)
+	for (int nCapcode = 1; nCapcode <= aGroupCodes[groupbit][CAPCODES_INDEX]; nCapcode++)
 	{
 		int min, j;
-		for (min=nCapcode, j=nCapcode+1; aGroupCodes[groupbit][j] > 0; j++)
+		for (min = nCapcode, j = nCapcode + 1; aGroupCodes[groupbit][j] > 0; j++)
 		{
 			if (aGroupCodes[groupbit][j] < aGroupCodes[groupbit][min]) min = j;
 		}
 
-		int tmp=aGroupCodes[groupbit][nCapcode];
+		int tmp = aGroupCodes[groupbit][nCapcode];
 
 		aGroupCodes[groupbit][nCapcode] = aGroupCodes[groupbit][min];
 		aGroupCodes[groupbit][min] = tmp;  // swap them
@@ -515,18 +516,18 @@ void SortGroupCall(int groupbit)	// PH: Sort aGroupCodes[groupbit]
 void Check4_MissedGroupcalls()
 {
 	int difference, assignedframe;
-	int currentframe=iCurrentFrame;
+	int currentframe = iCurrentFrame;
 
-	for (int groupbit=0; groupbit<16; groupbit++)
+	for (int groupbit = 0; groupbit < 16; groupbit++)
 	{
 		if (GroupFrame[groupbit] != -1)		// Check if assignment in buffer for this groupcode
 		{
 			assignedframe = GroupFrame[groupbit];	// Get assigned frame
 
-			if ((assignedframe > 120) && (currentframe < 8)) currentframe  += 128;	// Assigned frame was in previous cycle
+			if ((assignedframe > 120) && (currentframe < 8)) currentframe += 128;	// Assigned frame was in previous cycle
 			if ((assignedframe < 8) && (currentframe > 120)) assignedframe += 128;	// Assigned frame is in next cycle
 
-			difference = assignedframe-currentframe;	// Calculate difference
+			difference = assignedframe - currentframe;	// Calculate difference
 
 			if (difference <= 0)	// If difference is 0 or lower, a groupcall has been missed
 			{
@@ -541,7 +542,7 @@ void Remove_MissedGroupcall(int groupbit)
 {
 	extern int nCount_Missed[2], nCount_Messages, nCount_Groupcalls;
 	char szFile[MAX_PATH];
-	
+
 	FILE *pFLEX_missed = NULL;			// PH: file: "missed-groupcalls.txt"
 
 	sprintf(szFile, "%s\\missed-groupcalls.txt", szPath);
@@ -558,11 +559,11 @@ void Remove_MissedGroupcall(int groupbit)
 	if (pFLEX_missed)
 	{
 		Get_Date_Time();
-		fprintf(pFLEX_missed, " %s %s (%i-%03i) : ", szCurrentDate, szCurrentTime, groupbit+2029568, GroupFrame[groupbit]);
+		fprintf(pFLEX_missed, " %s %s (%i-%03i) : ", szCurrentDate, szCurrentTime, groupbit + 2029568, GroupFrame[groupbit]);
 
 		SortGroupCall(groupbit);	// PH: Sort current groupcall in ascending order
 
-		for (int nCapcode=1; aGroupCodes[groupbit][nCapcode] > 0; nCapcode++)
+		for (int nCapcode = 1; aGroupCodes[groupbit][nCapcode] > 0; nCapcode++)
 		{
 			if (aGroupCodes[groupbit][nCapcode] == 9999999) fprintf(pFLEX_missed, "??????? ");
 			else fprintf(pFLEX_missed, "%07i ", aGroupCodes[groupbit][nCapcode]);
@@ -588,29 +589,29 @@ void ShowMessage()
 {
 	int pos, i, j, k, tmp_pos, iSepfile, pane;
 	int panepos;							// PH: Temp line positions, used by Wordwrap
-	int iMOBITEX=0;							// PH: Set if converting a Mobitex message
-	int BlockOnlyMsg =((Profile.BlockDuplicate & BLOCK_OPTION) == BLOCK_ONLYMSG);
+	int iMOBITEX = 0;							// PH: Set if converting a Mobitex message
+	int BlockOnlyMsg = ((Profile.BlockDuplicate & BLOCK_OPTION) == BLOCK_ONLYMSG);
 
-	bool bMONITOR=true;		// PH: To indicate if current message has to be written to Pane1
+	bool bMONITOR = true;		// PH: To indicate if current message has to be written to Pane1
 
-	bool bBlock=false, bSkip_character=false;
-	bool bMATCH=false, bMONITOR_ONLY=false, bFILTERED=false;
-	bool bShowMessage=true, bFragment=false, bGroupcode;
-	bool bNumeric=false;
+	bool bBlock = false, bSkip_character = false;
+	bool bMATCH = false, bMONITOR_ONLY = false, bFILTERED = false;
+	bool bShowMessage = true, bFragment = false, bGroupcode;
+	bool bNumeric = false;
 	bool bNewFile, bNewLine;					// PH: To indicate if the logfile is new / already exists
 	bool bSeparator[2] = { true, true };		// PH: Set if a separator is needed
 	bool bCombine = false;						// PH: Used for grouping not-group messages
 
-	static bool bPlayWaveFile, bPreviousDoubleDisplay=false;
-	static bool bPreviousNumeric[2]= { false, false };	// PH: Was prev.MSG numeric?
+	static bool bPlayWaveFile, bPreviousDoubleDisplay = false;
+	static bool bPreviousNumeric[2] = { false, false };	// PH: Was prev.MSG numeric?
 														// ([MONITOR] / [FILTER])
 	char szFilename[MAX_PATH];					// Buffer for filenames
-	char szFragment[50]="";						// Buffer for fragment text
+	char szFragment[50] = "";						// Buffer for fragment text
 	char temp[MAX_STR_LEN];						// Temp buffer
 	char ch;									// Buffer for current character (message_buffer[pos])
 	char szLabelspacing[100];					// PH: Spaces before label
-	char szCurrentLabel[2][FILTER_LABEL_LEN+50] = { "", "" };
-	char aGroupnumbers[16][8]={"-1", "-2", "-3", "-4", "-5", "-6", "-7", "-8", "-9", "10", "11", "12", "13", "14", "15", "16"};
+	char szCurrentLabel[2][FILTER_LABEL_LEN + 50] = { "", "" };
+	char aGroupnumbers[16][8] = { "-1", "-2", "-3", "-4", "-5", "-6", "-7", "-8", "-9", "10", "11", "12", "13", "14", "15", "16" };
 
 	extern bool bTrayed, bDoubleDisplay;
 	extern int  nCount_Messages, nCount_Rejected, nCount_Blocked, nCount_Groupcalls;
@@ -621,11 +622,11 @@ void ShowMessage()
 
 	if (!iConvertingGroupcall)
 	{
-		message_buffer[iMessageIndex]=0;		// terminate the buffer string
+		message_buffer[iMessageIndex] = 0;		// terminate the buffer string
 		message_color[iMessageIndex] = COLOR_UNUSED;
 		iMessageIndex = 0;
 	}
-	
+
 	if (Profile.lang_mi_index)
 	{
 		if (Profile.reverse_msg)
@@ -633,7 +634,7 @@ void ShowMessage()
 			reverse_msg_words();	// Reverse message words if language requires it.
 		}
 
-		for (pos=0; message_buffer[pos] != 0; pos++)
+		for (pos = 0; message_buffer[pos] != 0; pos++)
 		{
 			message_buffer[pos] = remap_ch(message_buffer[pos]);
 		}
@@ -641,9 +642,9 @@ void ShowMessage()
 
 	memcpy(Current_MSG[MSG_MESSAGE], message_buffer, MAX_STR_LEN);
 
-	bMobitexReplace=false;
+	bMobitexReplace = false;
 
-	iMatch=Check_4_Filtermatch();	// PH: Check if current message matches a filter
+	iMatch = Check_4_Filtermatch();	// PH: Check if current message matches a filter
 
 	bGroupcode = memcmp(Current_MSG[MSG_CAPCODE], "20295", 5) ? false : true;
 
@@ -658,7 +659,7 @@ void ShowMessage()
 
 		if (Profile.FlexGroupMode & FLEXGROUPMODE_HIDEGROUPCODES)
 		{
-			bShowMessage=false;
+			bShowMessage = false;
 
 			if (!bShown[MONITOR] && (Profile.BlockDuplicate & BLOCK_OPTION) == BLOCK_TIMER)	// Nothing shown + using timer
 			{
@@ -684,16 +685,16 @@ void ShowMessage()
 
 			bUpdateFilters = true;										// Update filters.ini in UpdateFilters()
 
-			bMATCH=true;
+			bMATCH = true;
 
 			if (Profile.filters[iMatch].monitor_only || bMobitexReplace)
 			{
-				bMONITOR_ONLY=true;
+				bMONITOR_ONLY = true;
 			}
 			else
 			{
-				bFILTERED=true;
-				if (Profile.filterwindowonly) bMONITOR=false;	// Don't display filtered messages in monitor pane
+				bFILTERED = true;
+				if (Profile.filterwindowonly) bMONITOR = false;	// Don't display filtered messages in monitor pane
 			}
 
 			if (Profile.filters[iMatch].reject)
@@ -722,7 +723,7 @@ void ShowMessage()
 			}
 		}
 		else if ((strstr(Current_MSG[MSG_MODE], "POCSAG")) &&
-				(memcmp(Current_MSG[MSG_MESSAGE], "WHC+", 4) == 0))
+			(memcmp(Current_MSG[MSG_MESSAGE], "WHC+", 4) == 0))
 		{
 			return;
 		}
@@ -744,10 +745,10 @@ void ShowMessage()
 
 					if ((pBlocked = fopen(szFilename, "a")) != NULL)
 					{
-						fprintf(pBlocked, "%s %s %s  %s\n",	Current_MSG[MSG_CAPCODE],
-															Current_MSG[MSG_TIME],
-															Current_MSG[MSG_DATE],
-															Current_MSG[MSG_MESSAGE]);
+						fprintf(pBlocked, "%s %s %s  %s\n", Current_MSG[MSG_CAPCODE],
+							Current_MSG[MSG_TIME],
+							Current_MSG[MSG_DATE],
+							Current_MSG[MSG_MESSAGE]);
 						fclose(pBlocked);
 						pBlocked = NULL;
 					}
@@ -764,8 +765,8 @@ void ShowMessage()
 					if (CompareMessage(MSG_MESSAGE, FILTER) &&	// Compare messages
 						CompareMessage(MSG_TYPE, FILTER))		// Compare types (mostly for Mobitex)
 					{
-						bFILTERED=false;
-						bMONITOR_ONLY=true;
+						bFILTERED = false;
+						bMONITOR_ONLY = true;
 					}
 				}
 			}
@@ -774,17 +775,17 @@ void ShowMessage()
 		{
 			switch (Profile.SystemTrayRestore)
 			{
-				default:
-				case 1:
-						SystemTrayWindow(false);
+			default:
+			case 1:
+				SystemTrayWindow(false);
 				break;
 
-				case 2:
-						if (bMONITOR_ONLY || bFILTERED) SystemTrayWindow(false);
+			case 2:
+				if (bMONITOR_ONLY || bFILTERED) SystemTrayWindow(false);
 				break;
 
-				case 3:
-						if (bFILTERED) SystemTrayWindow(false);
+			case 3:
+				if (bFILTERED) SystemTrayWindow(false);
 				break;
 			}
 		}
@@ -793,18 +794,18 @@ void ShowMessage()
 		{
 			if (!iConvertingGroupcall && (Profile.FlexGroupMode & FLEXGROUPMODE_COMBINE))
 			{
-				if (CompareMessage(MSG_MESSAGE, MONITOR) &&	!CompareMessage(MSG_CAPCODE, MONITOR))
+				if (CompareMessage(MSG_MESSAGE, MONITOR) && !CompareMessage(MSG_CAPCODE, MONITOR))
 				{
 					if (memcmp(Current_MSG[MSG_CAPCODE], Previous_MSG[MONITOR][MSG_CAPCODE], 2) == 0)
 					{
-						bCombine=true;
+						bCombine = true;
 					}
 				}
 			}
 		}
 		if (!bShown[MONITOR] && !bCombine) memset(szSepfilenames, 0, sizeof(szSepfilenames));
 
-		for (pane=0; pane<2; pane++)	// Loop trough messageitems, first show MONITOR,
+		for (pane = 0; pane < 2; pane++)	// Loop trough messageitems, first show MONITOR,
 		{								// then show FILTER
 
 			if (pane == MONITOR)
@@ -861,11 +862,11 @@ void ShowMessage()
 			{
 				if (Profile.FlexGroupMode)
 				{
-					 sprintf(szFragment, "  [Fragment #%c]", char(Current_MSG[MSG_BITRATE][3])+1);
+					sprintf(szFragment, "  [Fragment #%c]", char(Current_MSG[MSG_BITRATE][3]) + 1);
 				}
-				else sprintf(szFragment, "[Continued message - Fragment #%c]", char(Current_MSG[MSG_BITRATE][3])+1);
+				else sprintf(szFragment, "[Continued message - Fragment #%c]", char(Current_MSG[MSG_BITRATE][3]) + 1);
 
-				bFragment=true;
+				bFragment = true;
 			}
 
 			if (bSeparator[pane] && pPane->Bottom) // If pane is not empty, add an empty line
@@ -878,11 +879,11 @@ void ShowMessage()
 			display_show_strV2(pPane, " ");
 
 			// Display&log message
-			for (i=0; i<7; i++)
+			for (i = 0; i < 7; i++)
 			{
 				if (Profile.ScreenColumns[i] == 0) break;
 
-				for (j=iPanePos; j<iItemPositions[Profile.ScreenColumns[i]]; j++)
+				for (j = iPanePos; j < iItemPositions[Profile.ScreenColumns[i]]; j++)
 				{
 					display_show_strV2(pPane, " ");
 				}
@@ -895,13 +896,13 @@ void ShowMessage()
 						display_show_strV2(pPane, szFragment);
 						display_line(pPane);
 
-						for (j=iPanePos; j<iItemPositions[MSG_MESSAGE]; j++)
+						for (j = iPanePos; j < iItemPositions[MSG_MESSAGE]; j++)
 						{
 							display_show_strV2(pPane, " ");
 						}
 					}
 
-					for (pos=0; message_buffer[pos] != 0; pos++, bSkip_character=false)
+					for (pos = 0; message_buffer[pos] != 0; pos++, bSkip_character = false)
 					{
 						ch = message_buffer[pos];
 						display_color(pPane, message_color[pos]);
@@ -910,7 +911,7 @@ void ShowMessage()
 						{
 							if (iTextLengths[0] && !Profile.FlexGroupMode)
 							{
-								for (k=0; k<10 && iTextPositions[k]; k++)
+								for (k = 0; k < 10 && iTextPositions[k]; k++)
 								{
 									if (pos >= iTextPositions[k] && pos < (iTextPositions[k] + iTextLengths[k]))
 									{
@@ -918,7 +919,7 @@ void ShowMessage()
 									}
 								}
 							}
-							else if (pos >= iTextMatch && pos < (iTextMatch+iTextLength))
+							else if (pos >= iTextMatch && pos < (iTextMatch + iTextLength))
 							{
 								display_color(pPane, COLOR_FILTERMATCH);
 							}
@@ -929,21 +930,21 @@ void ShowMessage()
 							if (ch == char(23))
 							{
 								build_show_line(pPane, ' ', BUILDSHOWLINE_LINEFEED);
-								bSkip_character=true;
+								bSkip_character = true;
 							}
 						}
 						else if (ch == ' ')				// PH: If character is a space
 						{
 							if (iPanePos == iItemPositions[MSG_MESSAGE])
 							{
-								bSkip_character=true;	// PH: If first char is a space, skip it
+								bSkip_character = true;	// PH: If first char is a space, skip it
 							}
 							else if (!Profile.monitor_mobitex)	// PH: Check for wordwrap
 							{
 								tmp_pos = pos;
-								panepos=iPanePos;
+								panepos = iPanePos;
 
-								while (message_buffer[tmp_pos+1] != ' ' && message_buffer[tmp_pos] != 0)
+								while (message_buffer[tmp_pos + 1] != ' ' && message_buffer[tmp_pos] != 0)
 								{
 									tmp_pos++;
 									panepos++;
@@ -952,7 +953,7 @@ void ShowMessage()
 								if (panepos > NewLinePoint)		// PH: Move to new line
 								{
 									build_show_line(pPane, ' ', BUILDSHOWLINE_LINEFEED);
-									bSkip_character=true;
+									bSkip_character = true;
 								}
 							}
 						}
@@ -960,18 +961,18 @@ void ShowMessage()
 						{
 							if (Profile.Linefeed)
 							{
-								if (iPanePos == iItemPositions[MSG_MESSAGE]) bSkip_character=true;
+								if (iPanePos == iItemPositions[MSG_MESSAGE]) bSkip_character = true;
 								else
 								{
 									build_show_line(pPane, ' ', BUILDSHOWLINE_LINEFEED);
-									bSkip_character=true;
+									bSkip_character = true;
 								}
 							}
 						}
 
 						if (!bSkip_character)		// Show current character on screen
 						{
-							build_show_line(pPane, ch, (message_buffer[pos+1] == 0) ? BUILDSHOWLINE_LASTCHAR : 0);
+							build_show_line(pPane, ch, (message_buffer[pos + 1] == 0) ? BUILDSHOWLINE_LASTCHAR : 0);
 						}
 					}
 
@@ -990,18 +991,18 @@ void ShowMessage()
 						{
 							if (iConvertingGroupcall)
 							{
-								sprintf(temp, "GROUP%s", aGroupnumbers[iConvertingGroupcall-1]);
+								sprintf(temp, "GROUP%s", aGroupnumbers[iConvertingGroupcall - 1]);
 							}
 							display_color(pPane, messageitems_colors[MSG_TYPE]);
-							display_show_strV2(pPane, iConvertingGroupcall? temp : Current_MSG[MSG_TYPE]);
+							display_show_strV2(pPane, iConvertingGroupcall ? temp : Current_MSG[MSG_TYPE]);
 
 							if (Profile.FlexGroupMode & FLEXGROUPMODE_LOGGING)
 							{
 								sprintf(szLogFileLine, "%s %s  %s  %s\n",
-															Current_MSG[MSG_TIME],
-															Current_MSG[MSG_DATE],
-															iConvertingGroupcall? temp : Current_MSG[MSG_TYPE],
-															Current_MSG[MSG_MESSAGE]);
+									Current_MSG[MSG_TIME],
+									Current_MSG[MSG_DATE],
+									iConvertingGroupcall ? temp : Current_MSG[MSG_TYPE],
+									Current_MSG[MSG_MESSAGE]);
 							}
 							continue;
 						}
@@ -1032,13 +1033,13 @@ void ShowMessage()
 				display_show_strV2(pPane, " ");
 				display_line(pPane);		// Separate grouped num+alpha message
 			}
-			bShown[pane]=true;
+			bShown[pane] = true;
 		}
 		iMessageIndex = 0;					// reset to beginning of filter buffer
 
 		if (Profile.FlexGroupMode)
 		{
-			for (pane=0; pane<2; pane++)	// Loop trough messageitems, first show MONITOR,
+			for (pane = 0; pane < 2; pane++)	// Loop trough messageitems, first show MONITOR,
 			{								// then show FILTER
 				if (pane == MONITOR)
 				{
@@ -1058,7 +1059,7 @@ void ShowMessage()
 				}
 				memcpy(Previous_MSG[pane], Current_MSG, (MAX_STR_LEN * 9));
 
-				for (i=0, iPanePos=0; i<3; i++)
+				for (i = 0, iPanePos = 0; i < 3; i++)
 				{
 					if (Profile.ScreenColumns[i] == MSG_CAPCODE)
 					{
@@ -1069,7 +1070,7 @@ void ShowMessage()
 							display_show_strV2(pPane, szFragment);
 						}
 
-						for (int j=iPanePos; j<iItemPositions[Profile.ScreenColumns[i]]; j++)
+						for (int j = iPanePos; j < iItemPositions[Profile.ScreenColumns[i]]; j++)
 						{
 							display_show_strV2(pPane, " ");
 						}
@@ -1089,7 +1090,7 @@ void ShowMessage()
 			}
 			else strcpy(szCurrentLabel[0], Profile.filters[iMatch].label);
 
-			dwColor = (COLOR_FILTERLABEL+Profile.filters[iMatch].label_color);
+			dwColor = (COLOR_FILTERLABEL + Profile.filters[iMatch].label_color);
 
 			if (bMONITOR && (bMONITOR_ONLY || Profile.LabelLog))
 			{
@@ -1101,7 +1102,7 @@ void ShowMessage()
 			}
 
 			memset(szLabelspacing, 0, sizeof(szLabelspacing));
-			memset(szLabelspacing, ' ', iItemPositions[MSG_MESSAGE]-iPanePos);
+			memset(szLabelspacing, ' ', iItemPositions[MSG_MESSAGE] - iPanePos);
 
 			sprintf(szCurrentLabel[1], "- %s -", szCurrentLabel[0]);	// Create "- label -" for logfiles
 
@@ -1118,7 +1119,7 @@ void ShowMessage()
 				display_show_strV2(&Pane2, szLabelspacing);		// First, show the correct # of spaces
 				display_color(&Pane2, dwColor);
 				display_show_strV2(&Pane2, szCurrentLabel[0]);	// Show filterlabel in Pane2
-			
+
 				if (Profile.LabelLog && bMONITOR)
 				{
 					// PH: Show filterlabel also in monitor pane
@@ -1182,8 +1183,8 @@ void ShowMessage()
 					if (Profile.LabelNewline)
 					{
 						strcat(szLogFileLine, "\n");
-						memset(szLabelspacing,  0, sizeof(szLabelspacing));
-						memset(szLabelspacing, 32, iLabelspace_Logfile[MONITOR]+1);
+						memset(szLabelspacing, 0, sizeof(szLabelspacing));
+						memset(szLabelspacing, 32, iLabelspace_Logfile[MONITOR] + 1);
 						strcat(szLogFileLine, szLabelspacing);
 					}
 					else strcat(szLogFileLine, " ");
@@ -1206,8 +1207,8 @@ void ShowMessage()
 					if (Profile.LabelNewline)
 					{
 						strcat(szLogFileLine, "\n");
-						memset(szLabelspacing, 0,  sizeof(szLabelspacing));
-						memset(szLabelspacing, 32, iLabelspace_Logfile[FILTER]+1);
+						memset(szLabelspacing, 0, sizeof(szLabelspacing));
+						memset(szLabelspacing, 32, iLabelspace_Logfile[FILTER] + 1);
 						strcat(szLogFileLine, szLabelspacing);
 					}
 					else strcat(szLogFileLine, " ");
@@ -1234,7 +1235,7 @@ void ShowMessage()
 						if (isdigit(szLogFileLine[0]) && !bLogged[FILTER] && !bCombine)
 						{
 							fprintf(pFilterFile, "%s%s", bNewLine ? "\n" : "", szLogFileLine);
-							bLogged[FILTER]=true;
+							bLogged[FILTER] = true;
 						}
 						fprintf(pFilterFile, "%s    %s  %s\n", bFragment ? szFragment : "               ", Current_MSG[MSG_CAPCODE], szCurrentLabel[0]);
 					}
@@ -1244,11 +1245,11 @@ void ShowMessage()
 
 			if (Profile.filters[iMatch].sep_filterfile_en && Profile.filters[iMatch].sep_filterfiles)
 			{
-				for (int k=0; k<Profile.filters[iMatch].sep_filterfiles; k++)
+				for (int k = 0; k < Profile.filters[iMatch].sep_filterfiles; k++)
 				{
-					LogFileHandling(SEPARATE+k, szSepfilenames[CURRENT], OPEN_FILE);
+					LogFileHandling(SEPARATE + k, szSepfilenames[CURRENT], OPEN_FILE);
 
-					for (iSepfile=1; iSepfile<MAX_SEPFILES; iSepfile++)
+					for (iSepfile = 1; iSepfile < MAX_SEPFILES; iSepfile++)
 					{
 						if (stricmp(szSepfilenames[CURRENT], szSepfilenames[iSepfile]) == 0)
 						{
@@ -1283,7 +1284,7 @@ void ShowMessage()
 
 			if (Profile.filterbeep)	// Playsound to indicate that a filtered item was received
 			{
-				if (PlayWaveFile(bMONITOR_ONLY, bFILTERED, false)) bPlayWaveFile=true;
+				if (PlayWaveFile(bMONITOR_ONLY, bFILTERED, false)) bPlayWaveFile = true;
 			}
 		}
 	} // if (bShowMessage)
@@ -1299,33 +1300,44 @@ void ShowMessage()
 			PlayWaveFile(NULL, NULL, true);
 			bPlayWaveFile = false;
 		}
-		
-		if (bFragment) bFragment=false;
+
+		if (bFragment) bFragment = false;
 
 		ResetBools();
-/*
-		bShown[MONITOR] = false;
-		bShown[FILTER]  = false;
+		/*
+				bShown[MONITOR] = false;
+				bShown[FILTER]  = false;
 
-		bLogged[MONITOR]  = false;
-		bLogged[FILTER]   = false;
-		bLogged[SEPARATE] = false;
-*/
+				bLogged[MONITOR]  = false;
+				bLogged[FILTER]   = false;
+				bLogged[SEPARATE] = false;
+		*/
 		memset(message_buffer, 0, sizeof(message_buffer));
 	}
+
+	if (Profile.MESSAGE_QUEUE) {
+		SendMQMessage(Current_MSG[MSG_CAPCODE],
+			Current_MSG[MSG_TIME],
+			Current_MSG[MSG_DATE],
+			Current_MSG[MSG_MODE],
+			Current_MSG[MSG_TYPE],
+			Current_MSG[MSG_BITRATE],
+			iMOBITEX ? Current_MSG[MSG_MOBITEX] : Current_MSG[MSG_MESSAGE]);
+	}
+
 
 	if (Profile.SMTP)
 	{
 		SendMail(0, bMATCH, bMONITOR_ONLY,
-					bMATCH ? Profile.filters[iMatch].smtp : 0,	// if no iMatch, smtp=0
-					Current_MSG[MSG_CAPCODE],
-					Current_MSG[MSG_TIME],
-					Current_MSG[MSG_DATE],
-					Current_MSG[MSG_MODE],
-					Current_MSG[MSG_TYPE],
-					Current_MSG[MSG_BITRATE],
-					iMOBITEX ? Current_MSG[MSG_MOBITEX] : Current_MSG[MSG_MESSAGE],
-					szCurrentLabel[0]);
+			bMATCH ? Profile.filters[iMatch].smtp : 0,	// if no iMatch, smtp=0
+			Current_MSG[MSG_CAPCODE],
+			Current_MSG[MSG_TIME],
+			Current_MSG[MSG_DATE],
+			Current_MSG[MSG_MODE],
+			Current_MSG[MSG_TYPE],
+			Current_MSG[MSG_BITRATE],
+			iMOBITEX ? Current_MSG[MSG_MOBITEX] : Current_MSG[MSG_MESSAGE],
+			szCurrentLabel[0]);
 	}
 
 	if (Current_MSG[MSG_MOBITEX][0]) Current_MSG[MSG_MOBITEX][0] = '\0';
@@ -1337,15 +1349,15 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 {
 	extern int nCount_BlockBuffer[2];
 
-	bool bBlock=false;
+	bool bBlock = false;
 
-	int i, j, sum=0;
-	int BlockTimer   = (Profile.BlockDuplicate >> 4) * 60;
-	int BlockOnlyMsg =((Profile.BlockDuplicate & BLOCK_OPTION) == BLOCK_ONLYMSG);
+	int i, j, sum = 0;
+	int BlockTimer = (Profile.BlockDuplicate >> 4) * 60;
+	int BlockOnlyMsg = ((Profile.BlockDuplicate & BLOCK_OPTION) == BLOCK_ONLYMSG);
 
 	char temp[10];
 
-	unsigned long int lChecksum=0, lAddress=0;
+	unsigned long int lChecksum = 0, lAddress = 0;
 
 	if (!iConvertingGroupcall && (Profile.BlockDuplicate & BLOCK_OPTION) != BLOCK_TIMER)	// Not using the timer, only check last message
 	{
@@ -1355,20 +1367,20 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 			if (CompareMessage(MSG_MESSAGE, MONITOR) &&	// Compare messages
 				CompareMessage(MSG_TYPE, MONITOR))		// Compare types (mostly for Mobitex)
 			{
-				bBlock=true;
+				bBlock = true;
 			}
 		}
 	}
 	else if (BlockTimer)
 	{
-		for (i=0, j=0; i<strlen(message); i++)
+		for (i = 0, j = 0; i < strlen(message); i++)
 		{
 			if ((i < 10) && isdigit(message[i]))	// Treat strings of numbers as one big number
 			{
-				j=i;
+				j = i;
 				while (isdigit(message[i]) && (i <= 10)) i++;
-				strncpy(temp, &message[j], i-j);
-				temp[i-j] = '\0';
+				strncpy(temp, &message[j], i - j);
+				temp[i - j] = '\0';
 				sum += atoi(temp);
 				i--;
 				continue;
@@ -1379,9 +1391,9 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 
 		if (reject)							// At this point, we don't want to show a FLEX-groupcode,
 		{									// but we didn't show any capcodes either,
-			for (i=0; i<1000; i++)			// so let's assume that all capcodes are rejected
+			for (i = 0; i < 1000; i++)			// so let's assume that all capcodes are rejected
 			{								// and current groupcall can be removed from array
-				if (aMessages[i+1][BLOCK_ADDRESS] == 0)
+				if (aMessages[i + 1][BLOCK_ADDRESS] == 0)
 				{
 					if (aMessages[i][BLOCK_CHECKSUM] == lChecksum)	// Message the same?
 					{
@@ -1397,17 +1409,17 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 
 			lAddress = atoi(temp);
 
-			for (i=0; i<1000; i++)
+			for (i = 0; i<1000; i++)
 			{
 				if (aMessages[i][BLOCK_ADDRESS])
 				{
 					if (aMessages[i][BLOCK_ADDRESS] == lAddress)		// Address the same?
 					{
-						if ((aMessages[i][BLOCK_TIME]+BlockTimer) > iSecondsElapsed)	// Less then blocktimer?
+						if ((aMessages[i][BLOCK_TIME] + BlockTimer) > iSecondsElapsed)	// Less then blocktimer?
 						{
 							if (aMessages[i][BLOCK_CHECKSUM] == lChecksum)	// Message the same?
 							{
-								bBlock=true;						// Block this message
+								bBlock = true;						// Block this message
 								break;
 							}
 						}
@@ -1420,14 +1432,14 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 				{
 					memmove(aMessages[0], aMessages[1], sizeof(aMessages));
 				}
-				for (i=0; i<1000; i++)
+				for (i = 0; i < 1000; i++)
 				{
 					if (aMessages[i][BLOCK_ADDRESS] == 0)
 					{
 						memset(aMessages[i], 0, sizeof(aMessages));
 
-						aMessages[i][BLOCK_ADDRESS]  = lAddress;
-						aMessages[i][BLOCK_TIME]     = iSecondsElapsed;
+						aMessages[i][BLOCK_ADDRESS] = lAddress;
+						aMessages[i][BLOCK_TIME] = iSecondsElapsed;
 						aMessages[i][BLOCK_CHECKSUM] = lChecksum;
 
 						break;
@@ -1437,11 +1449,11 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 		}
 	}
 
-	for (i=0; aMessages[i][BLOCK_ADDRESS]; i++);
+	for (i = 0; aMessages[i][BLOCK_ADDRESS]; i++);
 
 	nCount_BlockBuffer[0] = i;
 
-	if (nCount_BlockBuffer[0] > nCount_BlockBuffer[1]) nCount_BlockBuffer[1]=nCount_BlockBuffer[0];
+	if (nCount_BlockBuffer[0] > nCount_BlockBuffer[1]) nCount_BlockBuffer[1] = nCount_BlockBuffer[0];
 
 	return (bBlock);
 }
@@ -1450,49 +1462,49 @@ bool BlockChecker(char *address, int fnu, char *message, bool reject)
 void ResetBools()
 {
 	bShown[MONITOR] = false;
-	bShown[FILTER]  = false;
+	bShown[FILTER] = false;
 
-	bLogged[MONITOR]  = false;
-	bLogged[FILTER]   = false;
+	bLogged[MONITOR] = false;
+	bLogged[FILTER] = false;
 	bLogged[SEPARATE] = false;
 }
 
 
 char LogFileHandling(int file, char *szFileName, int action)
 {
-	int  i=1, UseDate=0;
+	int  i = 1, UseDate = 0;
 	char filename[MAX_PATH];		// Temp buffer for setting filenames
 	char ext[5];					// Temp buffer for file extension
-	
+
 	CreateDateFilename("", NULL);	// TEST/TEMP
 
 	if (action == OPEN_FILE)
 	{
 		switch (file)
 		{
-			case MONITOR:
+		case MONITOR:
 			strcpy(filename, Profile.logfile);
 			strcpy(ext, ".log");
 			UseDate = Profile.logfile_use_date;
 			break;
 
-			case FILTER:
+		case FILTER:
 			strcpy(filename, Profile.filterfile);
 			strcpy(ext, ".flt");
 			UseDate = Profile.filterfile_use_date;
 			break;
 
-			case SEPARATE:
+		case SEPARATE:
 			strcpy(filename, Profile.filters[iMatch].sep_filterfile[0]);
 			break;
-			case SEPARATE+1:
+		case SEPARATE + 1:
 			strcpy(filename, Profile.filters[iMatch].sep_filterfile[1]);
 			break;
-			case SEPARATE+2:
+		case SEPARATE + 2:
 			strcpy(filename, Profile.filters[iMatch].sep_filterfile[2]);
 			break;
 
-			default:
+		default:
 			break;
 		}
 		szFileName[0] = '\0';
@@ -1525,7 +1537,7 @@ char LogFileHandling(int file, char *szFileName, int action)
 			pFilterFile = NULL;
 		}
 
-		for (int i=0; i<MAX_SEPFILES; i++)
+		for (int i = 0; i < MAX_SEPFILES; i++)
 		{
 			if (pSepFilterFiles[i])
 			{
@@ -1550,8 +1562,8 @@ int CompareMessage(int item, int mon_or_filt)
 
 char *MakeFilterLabel(char *szLabel, char *szCapcode, char *szNewLabel)
 {
-	unsigned max = strlen(szCapcode), pos=0;
-	bool bFound=false;
+	unsigned max = strlen(szCapcode), pos = 0;
+	bool bFound = false;
 
 	unsigned tmp;
 
@@ -1576,9 +1588,9 @@ char *MakeFilterLabel(char *szLabel, char *szCapcode, char *szNewLabel)
 
 bool PlayWaveFile(bool bMONITOR_ONLY, bool bFILTERED, bool bPlay)
 {
-	char *p={0};
-	char szText[FILTER_TEXT_LEN+2]="";
-	char szCapcode[FILTER_CAPCODE_LEN+1];
+	char *p = { 0 };
+	char szText[FILTER_TEXT_LEN + 2] = "";
+	char szCapcode[FILTER_CAPCODE_LEN + 1];
 	static int Prio[2] = { 19, 19 };		// PH: Holds CURRENT/PREVIOUS priority
 	static int PrioTMP[2] = { 19, 19 };		// PH: Holds TEMP priorities
 	static char szWavefile[2][MAX_PATH];	// PH: Buffer for CURRENT/PREVIOUS wavefilename
@@ -1628,11 +1640,11 @@ bool PlayWaveFile(bool bMONITOR_ONLY, bool bFILTERED, bool bPlay)
 
 			if ((!FileExists(szWavefileTMP[CURRENT])) && (strstr(Profile.filters[iMatch].capcode, "?")))
 			{
-				strcpy(szCapcode, Profile.filters[iMatch].capcode+(strlen(Profile.filters[iMatch].capcode)-strlen(Current_MSG[MSG_CAPCODE])));
+				strcpy(szCapcode, Profile.filters[iMatch].capcode + (strlen(Profile.filters[iMatch].capcode) - strlen(Current_MSG[MSG_CAPCODE])));
 
-				while (p=strchr(szCapcode, '?'))
+				while (p = strchr(szCapcode, '?'))
 				{
-					*p='X';
+					*p = 'X';
 					PrioTMP[CURRENT]++;
 				}
 				sprintf(szWavefileTMP[CURRENT], "%s\\%s%s.wav", szWavePathName, szCapcode, szText);
@@ -1651,61 +1663,61 @@ bool PlayWaveFile(bool bMONITOR_ONLY, bool bFILTERED, bool bPlay)
 				if (bMONITOR_ONLY)
 				{
 					sprintf(szWavefileTMP[CURRENT], "%s\\monitor_only.wav", szWavePathName);
-					PrioTMP[CURRENT]=19;
+					PrioTMP[CURRENT] = 19;
 				}
 				else if (bFILTERED)		// PH: else play sound*.wav
 				{
-					sprintf(szWavefileTMP[CURRENT], "%s\\Sound%i.wav", szWavePathName, Profile.filters[iMatch].wave_number-1);
-					PrioTMP[CURRENT]=9;
+					sprintf(szWavefileTMP[CURRENT], "%s\\Sound%i.wav", szWavePathName, Profile.filters[iMatch].wave_number - 1);
+					PrioTMP[CURRENT] = 9;
 				}
 			}
 		}
 		if (FileExists(szWavefileTMP[CURRENT]))		// PH: Check if code.wav exists
 		{
-			HANDLE hFile =  CreateFile(szWavefileTMP[CURRENT],
-								GENERIC_READ,
-								FILE_SHARE_READ,
-								NULL,
-								OPEN_EXISTING,
-								FILE_ATTRIBUTE_NORMAL,
-								NULL);
+			HANDLE hFile = CreateFile(szWavefileTMP[CURRENT],
+				GENERIC_READ,
+				FILE_SHARE_READ,
+				NULL,
+				OPEN_EXISTING,
+				FILE_ATTRIBUTE_NORMAL,
+				NULL);
 
 			dwFileSizeTMP[CURRENT] = GetFileSize(hFile, NULL);	// Get the current file size
 
 			CloseHandle(hFile);
 			hFile = NULL;
 
-			if (((PrioTMP[CURRENT]  < PrioTMP[PREVIOUS]) && strcmp(szWavefileTMP[PREVIOUS], szWavefileTMP[CURRENT]) != 0) ||
+			if (((PrioTMP[CURRENT] < PrioTMP[PREVIOUS]) && strcmp(szWavefileTMP[PREVIOUS], szWavefileTMP[CURRENT]) != 0) ||
 				((PrioTMP[CURRENT] == PrioTMP[PREVIOUS]) && (dwFileSizeTMP[PREVIOUS] < dwFileSizeTMP[CURRENT])) ||
-				  szWavefile[CURRENT][0] == 0)
-			
+				szWavefile[CURRENT][0] == 0)
+
 			{
 				strcpy(szWavefile[CURRENT], szWavefileTMP[CURRENT]);
 				Prio[CURRENT] = PrioTMP[CURRENT];
-				dwFileSize[CURRENT]=dwFileSizeTMP[CURRENT];
+				dwFileSize[CURRENT] = dwFileSizeTMP[CURRENT];
 			}
 			else return (true);
 
 			strcpy(szWavefileTMP[PREVIOUS], szWavefileTMP[CURRENT]);
 			PrioTMP[PREVIOUS] = PrioTMP[CURRENT];
-			dwFileSizeTMP[PREVIOUS]=dwFileSizeTMP[CURRENT];
+			dwFileSizeTMP[PREVIOUS] = dwFileSizeTMP[CURRENT];
 
 			return (true);
 		}
 	}
 	else
 	{
-		if (!sndPlaySound(szWavefile[CURRENT], SND_FILENAME|SND_ASYNC|SND_NOSTOP))
+		if (!sndPlaySound(szWavefile[CURRENT], SND_FILENAME | SND_ASYNC | SND_NOSTOP))
 		{
-			if (((Prio[CURRENT]  < Prio[PREVIOUS]) && strcmp(szWavefile[PREVIOUS], szWavefile[CURRENT]) != 0) ||
+			if (((Prio[CURRENT] < Prio[PREVIOUS]) && strcmp(szWavefile[PREVIOUS], szWavefile[CURRENT]) != 0) ||
 				((Prio[CURRENT] == Prio[PREVIOUS]) && (dwFileSize[PREVIOUS] < dwFileSize[CURRENT])))
 			{
-				sndPlaySound(szWavefile[CURRENT], SND_FILENAME|SND_ASYNC);
+				sndPlaySound(szWavefile[CURRENT], SND_FILENAME | SND_ASYNC);
 			}
 		}
 		strcpy(szWavefile[PREVIOUS], szWavefile[CURRENT]);
 		Prio[PREVIOUS] = Prio[CURRENT];
-		dwFileSize[PREVIOUS]=dwFileSize[CURRENT];
+		dwFileSize[PREVIOUS] = dwFileSize[CURRENT];
 
 		strcpy(szWavefile[CURRENT], "");
 		Prio[CURRENT] = 19;
@@ -1720,12 +1732,12 @@ int Check_4_Filtermatch()
 {
 	int msg_len, code_len, txt_len, nFilters;
 	int mode = 0;
-	int i=0, j=0, k=0, l=0, m=0, n=0, pos=0;
+	int i = 0, j = 0, k = 0, l = 0, m = 0, n = 0, pos = 0;
 
-	bool bCompare=false, bCorrectHeader=false, bKeyword=false;
+	bool bCompare = false, bCorrectHeader = false, bKeyword = false;
 
-	char szTextTMP[FILTER_TEXT_LEN+1]="";
-	char* pSearch={0};
+	char szTextTMP[FILTER_TEXT_LEN + 1] = "";
+	char* pSearch = { 0 };
 
 	iMatch = -1;			// PH: Set to filter-# if current message matches a filter
 
@@ -1737,44 +1749,44 @@ int Check_4_Filtermatch()
 	{
 		if (strstr(Current_MSG[MSG_MODE], "FLEX"))
 		{
-			mode=FLEX_FILTER;
+			mode = FLEX_FILTER;
 		}
 		else if (strstr(Current_MSG[MSG_MODE], "POCSAG"))
 		{
-			mode=POCSAG_FILTER;
+			mode = POCSAG_FILTER;
 		}
 	}
 	else if (Profile.monitor_ermes)
 	{
-		mode=ERMES_FILTER;
+		mode = ERMES_FILTER;
 	}
 	else if (Profile.monitor_acars)
 	{
-		mode=ACARS_FILTER;
+		mode = ACARS_FILTER;
 	}
 	else if (Profile.monitor_mobitex)
 	{
-		mode=MOBITEX_FILTER;
+		mode = MOBITEX_FILTER;
 	}
 
 	code_len = strlen(Current_MSG[MSG_CAPCODE]);
-	msg_len  = strlen(Current_MSG[MSG_MESSAGE]);
+	msg_len = strlen(Current_MSG[MSG_MESSAGE]);
 	nFilters = Profile.filters.size();
 
 	// check if address matched a filter (iAddrMatch is filter index)
 	// we may need to iMatch text strings for this address as well...
-	for (int iFilter=0; iFilter<nFilters; iFilter++, i=j=k=l=0)
+	for (int iFilter = 0; iFilter < nFilters; iFilter++, i = j = k = l = 0)
 	{
-		iAddrMatch  = -1;	// Set to filter-# if current message matches a capcode
-		iTextMatch  = -1;	// If text-iMatch, set to position where filtertext starts
-		iTextLength =  0;	// If single text-iMatch, set to text length
+		iAddrMatch = -1;	// Set to filter-# if current message matches a capcode
+		iTextMatch = -1;	// If text-iMatch, set to position where filtertext starts
+		iTextLength = 0;	// If single text-iMatch, set to text length
 
 		if (iTextLengths[0])
 		{
-			for (i=0; i<10 && iTextLengths[i]; i++)
+			for (i = 0; i < 10 && iTextLengths[i]; i++)
 			{
-				iTextPositions[i]=0;
-				iTextLengths[i]=0;
+				iTextPositions[i] = 0;
+				iTextLengths[i] = 0;
 			}
 		}
 
@@ -1790,9 +1802,9 @@ int Check_4_Filtermatch()
 
 			if (mode == MOBITEX_FILTER)
 			{
-				switch (Profile.filters[iFilter].capcode[strlen(Profile.filters[iFilter].capcode)-2])
+				switch (Profile.filters[iFilter].capcode[strlen(Profile.filters[iFilter].capcode) - 2])
 				{
-					case 'R' :
+				case 'R':
 
 					if (filter_addr(Current_MSG[MSG_CAPCODE], Profile.filters[iFilter].capcode))
 					{
@@ -1800,7 +1812,7 @@ int Check_4_Filtermatch()
 					}
 					break;
 
-					case 'T' :
+				case 'T':
 
 					if (filter_addr(Current_MSG[MSG_MODE], Profile.filters[iFilter].capcode))
 					{
@@ -1808,10 +1820,10 @@ int Check_4_Filtermatch()
 					}
 					break;
 
-					default :
+				default:
 
 					if ((filter_addr(Current_MSG[MSG_CAPCODE], Profile.filters[iFilter].capcode)) ||
-						(filter_addr(Current_MSG[MSG_MODE],    Profile.filters[iFilter].capcode)))
+						(filter_addr(Current_MSG[MSG_MODE], Profile.filters[iFilter].capcode)))
 					{
 						iAddrMatch = iFilter;
 					}
@@ -1853,10 +1865,10 @@ int Check_4_Filtermatch()
 				// now scan the temp_str for the temp_filter string...
 				if (Profile.filters[iFilter].text[0] == '^')
 				{
-					if (strnicmp(Current_MSG[MSG_MESSAGE], &Profile.filters[iFilter].text[1], txt_len-1) == 0)
+					if (strnicmp(Current_MSG[MSG_MESSAGE], &Profile.filters[iFilter].text[1], txt_len - 1) == 0)
 					{
 						iTextMatch = 0;
-						iTextLength = txt_len-1;
+						iTextLength = txt_len - 1;
 					}
 				}
 				else if (strstr(Profile.filters[iFilter].text, "&") != 0)
@@ -1867,7 +1879,7 @@ int Check_4_Filtermatch()
 						{
 							szTextTMP[j++] = Profile.filters[iFilter].text[i++];
 						}
-						szTextTMP[j]='\0';
+						szTextTMP[j] = '\0';
 
 						pSearch = strstr(&Current_MSG[MSG_MESSAGE][k], szTextTMP);
 
@@ -1875,10 +1887,10 @@ int Check_4_Filtermatch()
 						{
 							if (iTextLengths[0])
 							{
-								for (i=0; i<10; i++)
+								for (i = 0; i < 10; i++)
 								{
-									iTextPositions[i]=0;
-									iTextLengths[i]=0;
+									iTextPositions[i] = 0;
+									iTextLengths[i] = 0;
 								}
 							}
 							break;
@@ -1887,12 +1899,12 @@ int Check_4_Filtermatch()
 						if (Profile.filters[iFilter].text[i] == '&')
 						{
 							i++;
-							j=0;
+							j = 0;
 						}
 						k = (pSearch - Current_MSG[MSG_MESSAGE]);
 
-						iTextPositions[l]=k;
-						iTextLengths[l++]=strlen(szTextTMP);
+						iTextPositions[l] = k;
+						iTextLengths[l++] = strlen(szTextTMP);
 
 						k += strlen(szTextTMP);
 					}
@@ -1903,7 +1915,7 @@ int Check_4_Filtermatch()
 				}
 				else
 				{
-					for (pos=0; pos <= (msg_len-txt_len); pos++)
+					for (pos = 0; pos <= (msg_len - txt_len); pos++)
 					{
 						if (strnicmp(&Current_MSG[MSG_MESSAGE][pos], Profile.filters[iFilter].text, txt_len) == 0)
 						{
@@ -1930,14 +1942,14 @@ int Check_4_Filtermatch()
 
 void ActivateCommandFile()
 {
-//	int  arg_pos=0, arg, tmp_index;		// Command file / argument stuff
-	int  arg_pos=0, arg;
-	int  pos, i=0;
-//	char param_str[MAX_STR_LEN], tmp_fname[MAX_PATH], tmp_pagername[100], tmp[10];
+	//	int  arg_pos=0, arg, tmp_index;		// Command file / argument stuff
+	int  arg_pos = 0, arg;
+	int  pos, i = 0;
+	//	char param_str[MAX_STR_LEN], tmp_fname[MAX_PATH], tmp_pagername[100], tmp[10];
 	char param_str[MAX_STR_LEN], tmp_pagername[100], tmp[10];
 	char szCommandFile[MAX_STR_LEN];	// was MAX_PATH
-	char szLabel[FILTER_LABEL_LEN+50];
-//	char ch;							// Buffer for current character
+	char szLabel[FILTER_LABEL_LEN + 50];
+	//	char ch;							// Buffer for current character
 
 	tmp_pagername[0] = 0;
 
@@ -1947,21 +1959,21 @@ void ActivateCommandFile()
 
 		if (Profile.filter_cmd_args[i] == '%')
 		{
-			arg=atoi(&Profile.filter_cmd_args[i+1]);
+			arg = atoi(&Profile.filter_cmd_args[i + 1]);
 
-			if (arg>0 && arg<8)
+			if (arg > 0 && arg < 8)
 			{
-				for (pos=0; Current_MSG[arg][pos] != 0; pos++, arg_pos++)
+				for (pos = 0; Current_MSG[arg][pos] != 0; pos++, arg_pos++)
 				{
-					if (Profile.monitor_mobitex && (arg==7) && (Current_MSG[7][pos] == '"' || Current_MSG[7][pos] == '\''))
+					if (Profile.monitor_mobitex && (arg == 7) && (Current_MSG[7][pos] == '"' || Current_MSG[7][pos] == '\''))
 					{
 						param_str[arg_pos] = ' ';
 					}
 					else param_str[arg_pos] = Current_MSG[arg][pos];
 				}
-				i+=2;
+				i += 2;
 			}
-			else if (Profile.filter_cmd_args[i+1] == '8')
+			else if (Profile.filter_cmd_args[i + 1] == '8')
 			{
 				MakeFilterLabel(Profile.filters[iMatch].label, Current_MSG[MSG_CAPCODE], szLabel);
 				pos = 0;
@@ -1969,10 +1981,10 @@ void ActivateCommandFile()
 				{
 					param_str[arg_pos++] = szLabel[pos++];
 				}
-				i+=2;
+				i += 2;
 			}
-			else if ((Profile.filter_cmd_args[i+1] == 'c') ||
-					 (Profile.filter_cmd_args[i+1] == 'C'))
+			else if ((Profile.filter_cmd_args[i + 1] == 'c') ||
+				(Profile.filter_cmd_args[i + 1] == 'C'))
 			{
 				sprintf(tmp, "%02i", iCurrentCycle);
 				pos = 0;
@@ -1980,10 +1992,10 @@ void ActivateCommandFile()
 				{
 					param_str[arg_pos++] = tmp[pos++];
 				}
-				i+=2;
+				i += 2;
 			}
-			else if ((Profile.filter_cmd_args[i+1] == 'r') ||
-					 (Profile.filter_cmd_args[i+1] == 'R'))
+			else if ((Profile.filter_cmd_args[i + 1] == 'r') ||
+				(Profile.filter_cmd_args[i + 1] == 'R'))
 			{
 				sprintf(tmp, "%03i", iCurrentFrame);
 				pos = 0;
@@ -1991,55 +2003,55 @@ void ActivateCommandFile()
 				{
 					param_str[arg_pos++] = tmp[pos++];
 				}
-				i+=2;
+				i += 2;
 			}
-/*			else if ((Profile.filter_cmd_args[i+1] == 'f') ||
-					 (Profile.filter_cmd_args[i+1] == 'F'))
-			{
-				i+=3;
-				tmp_index=0;
-				tmp_fname[0] = 0;
+			/*			else if ((Profile.filter_cmd_args[i+1] == 'f') ||
+								 (Profile.filter_cmd_args[i+1] == 'F'))
+						{
+							i+=3;
+							tmp_index=0;
+							tmp_fname[0] = 0;
 
-				// get temp filename
-				while ((Profile.filter_cmd_args[i] != '>') &&
-					   (Profile.filter_cmd_args[i] != 0))
-				{
-					tmp_fname[tmp_index++] = Profile.filter_cmd_args[i++]; 
-				}
-
-				if (Profile.filter_cmd_args[i] == '>') i++;
-
-				tmp_fname[tmp_index] = 0;
-
-				if (tmp_fname[0])
-				{
-					FILE *tmp_fp = NULL;
-
-					if ((tmp_fp = fopen(tmp_fname,"w+")) != NULL)
-					{
-						// save message to temp file.
-						if (tmp_pagername[0])	// Need to add name of
-						{						// person to be paged?
-							pos = 0;
-
-							while (tmp_pagername[pos] != 0) 
+							// get temp filename
+							while ((Profile.filter_cmd_args[i] != '>') &&
+								   (Profile.filter_cmd_args[i] != 0))
 							{
-								ch = tmp_pagername[pos++];
-								fwrite((char *)&ch, 1, 1, tmp_fp);
+								tmp_fname[tmp_index++] = Profile.filter_cmd_args[i++];
+							}
+
+							if (Profile.filter_cmd_args[i] == '>') i++;
+
+							tmp_fname[tmp_index] = 0;
+
+							if (tmp_fname[0])
+							{
+								FILE *tmp_fp = NULL;
+
+								if ((tmp_fp = fopen(tmp_fname,"w+")) != NULL)
+								{
+									// save message to temp file.
+									if (tmp_pagername[0])	// Need to add name of
+									{						// person to be paged?
+										pos = 0;
+
+										while (tmp_pagername[pos] != 0)
+										{
+											ch = tmp_pagername[pos++];
+											fwrite((char *)&ch, 1, 1, tmp_fp);
+										}
+									}
+									pos = 0;
+									while (message_buffer[pos] != 0)
+									{
+										ch = message_buffer[pos++];
+										fwrite((char *)&ch, 1, 1, tmp_fp);
+									}
+									fclose(tmp_fp);
+									tmp_fp = NULL;
+								}
 							}
 						}
-						pos = 0;
-						while (message_buffer[pos] != 0)
-						{
-							ch = message_buffer[pos++];
-							fwrite((char *)&ch, 1, 1, tmp_fp);
-						}
-						fclose(tmp_fp);
-						tmp_fp = NULL;
-					}
-				}
-			}
-*/
+			*/
 			else
 			{
 				param_str[arg_pos++] = Profile.filter_cmd_args[i];
@@ -2059,7 +2071,7 @@ void ActivateCommandFile()
 								//..process for the new process
 	STARTUPINFO si;				//Defines how to start the program
 
-	ZeroMemory(&si,sizeof(si));	//Zero the STARTUPINFO struct
+	ZeroMemory(&si, sizeof(si));	//Zero the STARTUPINFO struct
 	si.cb = sizeof(si);			//Must set size of structure
 
 	strcpy(szCommandFile, Profile.filter_cmd);
@@ -2077,18 +2089,18 @@ void ActivateCommandFile()
 	CloseHandle(pif.hProcess);
 	CloseHandle(pif.hThread);
 
-//	MessageBox(ghWnd, szCommandFile, "PDW Commandfile", MB_ICONINFORMATION);
+	//	MessageBox(ghWnd, szCommandFile, "PDW Commandfile", MB_ICONINFORMATION);
 }
 
 
 void CollectLogfileLine(char *string, bool bFilter)
 {
 	extern int FLEX_9;
-	int spacing=0;
+	int spacing = 0;
 
 	szLogFileLine[0] = '\0';
-	
-	for (int col=1; col<8; col++)
+
+	for (int col = 1; col < 8; col++)
 	{
 		if (col == 7)
 		{
@@ -2097,18 +2109,18 @@ void CollectLogfileLine(char *string, bool bFilter)
 			strcat(szLogFileLine, " ");
 		}
 
-		if (strchr(string, '0'+col))
+		if (strchr(string, '0' + col))
 		{
 			if (col == 7)
 			{
 				if (Profile.monitor_acars)
 				{
-					for (int pos=0; Current_MSG[MSG_MESSAGE][pos]!=0; pos++)
+					for (int pos = 0; Current_MSG[MSG_MESSAGE][pos] != 0; pos++)
 					{
 						if (Current_MSG[MSG_MESSAGE][pos] == char(23))
 						{
 							strcat(szLogFileLine, "\n");
-							for (int i=0; i<spacing+1; i++) strcat(szLogFileLine, " ");
+							for (int i = 0; i < spacing + 1; i++) strcat(szLogFileLine, " ");
 						}
 						else strncat(szLogFileLine, (char*)&Current_MSG[MSG_MESSAGE][pos], 1);
 					}
@@ -2117,12 +2129,12 @@ void CollectLogfileLine(char *string, bool bFilter)
 				{
 					if (Current_MSG[MSG_MOBITEX][0] && bFilter)
 					{
-						for (int pos=0; Current_MSG[MSG_MOBITEX][pos]!=0; pos++)
+						for (int pos = 0; Current_MSG[MSG_MOBITEX][pos] != 0; pos++)
 						{
 							if (Current_MSG[MSG_MOBITEX][pos] == '»')
 							{
 								strcat(szLogFileLine, "\n");
-								for (int i=0; i<spacing+1; i++) strcat(szLogFileLine, " ");
+								for (int i = 0; i < spacing + 1; i++) strcat(szLogFileLine, " ");
 							}
 							else strncat(szLogFileLine, (char*)&Current_MSG[MSG_MOBITEX][pos], 1);
 						}
@@ -2134,12 +2146,12 @@ void CollectLogfileLine(char *string, bool bFilter)
 				}
 				else if ((strstr(Current_MSG[MSG_MESSAGE], "»") != 0) && Profile.Linefeed)
 				{
-					for (int pos=0; Current_MSG[MSG_MESSAGE][pos]!=0; pos++)
+					for (int pos = 0; Current_MSG[MSG_MESSAGE][pos] != 0; pos++)
 					{
 						if (Current_MSG[MSG_MESSAGE][pos] == '»')
 						{
 							strcat(szLogFileLine, "\n");
-							for (int i=0; i<spacing+1; i++) strcat(szLogFileLine, " ");
+							for (int i = 0; i < spacing + 1; i++) strcat(szLogFileLine, " ");
 						}
 						else
 						{
@@ -2150,7 +2162,7 @@ void CollectLogfileLine(char *string, bool bFilter)
 				else strcat(szLogFileLine, Current_MSG[MSG_MESSAGE]);
 			}
 			else strcat(szLogFileLine, Current_MSG[col]);
-			
+
 			if (col < 7) strcat(szLogFileLine, " ");
 
 			if (col == 1 && Profile.monitor_paging && FLEX_9 > 25)
@@ -2197,7 +2209,7 @@ void display_showmo(int mode)
 	{
 		strcpy(szWindowText[2], "POCSAG-");
 
-		if      ((mode & MODE_P512)  == MODE_P512)  strcat(szWindowText[2], "512");
+		if ((mode & MODE_P512) == MODE_P512)  strcat(szWindowText[2], "512");
 		else if ((mode & MODE_P1200) == MODE_P1200) strcat(szWindowText[2], "1200");
 		else if ((mode & MODE_P2400) == MODE_P2400) strcat(szWindowText[2], "2400");
 	}
@@ -2212,16 +2224,16 @@ void display_showmo(int mode)
 			strcpy(szWindowText[2], "FLEX ");
 		}
 		if ((mode & MODE_FLEX_D) == MODE_FLEX_D)
-		strcat(szWindowText[2], "4 level 6400 (Phases ABCD)");	// PH: added "4 level 6400"
+			strcat(szWindowText[2], "4 level 6400 (Phases ABCD)");	// PH: added "4 level 6400"
 
 		else if ((mode & MODE_FLEX_B) == MODE_FLEX_B)
-		strcat(szWindowText[2], "4 level 3200 (Phases AB)");	// PH: added "4 level 3200"
+			strcat(szWindowText[2], "4 level 3200 (Phases AB)");	// PH: added "4 level 3200"
 
 		else if ((mode & MODE_FLEX_C) == MODE_FLEX_C)
-		strcat(szWindowText[2], "2 level 3200 (Phases AC)");	// PH: added "2 level 3200"
+			strcat(szWindowText[2], "2 level 3200 (Phases AC)");	// PH: added "2 level 3200"
 
 		else if ((mode & MODE_FLEX_A) == MODE_FLEX_A)
-		strcat(szWindowText[2], "2 level 1600 (Phase A)");		// PH: added "2 level 1600"
+			strcat(szWindowText[2], "2 level 1600 (Phase A)");		// PH: added "2 level 1600"
 
 		if (Profile.show_cfs)	// PH: Collect cycle/frame status
 		{
@@ -2236,17 +2248,17 @@ void display_showmo(int mode)
 void CreateDateFilename(char *ext, SYSTEMTIME *yesterday)
 {
 	SYSTEMTIME now;
-	char *months[12] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-						"JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+	char *months[12] = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+						"JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
 
-	if (yesterday) now=*yesterday;
+	if (yesterday) now = *yesterday;
 	else GetLocalTime(&now);
 
 	if (Profile.MonthNumber)
 	{
-		 sprintf(szFilenameDate, "%02d%02d%02d%s", now.wYear % 100, now.wMonth, now.wDay, ext);
+		sprintf(szFilenameDate, "%02d%02d%02d%s", now.wYear % 100, now.wMonth, now.wDay, ext);
 	}
-	else sprintf(szFilenameDate, "%02d%s%02d%s", now.wYear % 100, months[now.wMonth-1], now.wDay, ext);
+	else sprintf(szFilenameDate, "%02d%s%02d%s", now.wYear % 100, months[now.wMonth - 1], now.wDay, ext);
 
 	return;
 }
@@ -2274,9 +2286,9 @@ void display_show_hex16(PaneStruct *pane, int l)
 //int filter_addr(char addr_str[], char filter_str[], int size)
 int filter_addr(char addr_str[], char filter_str[])
 {
-	int i=0;
+	int i = 0;
 
-	int size=strlen(addr_str);
+	int size = strlen(addr_str);
 
 	while (i < size)
 	{
@@ -2292,11 +2304,11 @@ int filter_addr(char addr_str[], char filter_str[])
 
 int short_nOnes(char k)
 {
-	int kt=0;
+	int kt = 0;
 
 	if (k == 0) return(0);
 
-	for (int i=0; i<=7; i++)
+	for (int i = 0; i <= 7; i++)
 	{
 		if ((k & 0x01) != 0) kt++;
 		k = k >> 1;
@@ -2307,11 +2319,11 @@ int short_nOnes(char k)
 
 int nOnes(int k)
 {
-	int kt=0;
+	int kt = 0;
 
 	if (k == 0) return(0);
 
-	for (int i=0; i<=15; i++)
+	for (int i = 0; i <= 15; i++)
 	{
 		if ((k & 0x0001) != 0) kt++;
 		k = k >> 1;
@@ -2322,9 +2334,9 @@ int nOnes(int k)
 
 int bit10(int gin)
 {
-	int k=0;
+	int k = 0;
 
-	for (int i=0; i<10; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		if ((gin & 0x01) != 0) k++;
 		gin = gin >> 1;
@@ -2336,14 +2348,14 @@ int bit10(int gin)
 int ecd()
 {
 	int synd, b1, b2, i;
-	int errors=0, parity=0;
+	int errors = 0, parity = 0;
 
 	int ecc = 0x000;
 	int acc = 0;
 
 	// run through error detection and correction routine
 
-	for (i=0; i<=20; i++)
+	for (i = 0; i <= 20; i++)
 	{
 		if (ob[i] == 1)
 		{
@@ -2352,7 +2364,7 @@ int ecd()
 		}
 	}
 
-	for (i=21; i<=30; i++)
+	for (i = 21; i <= 30; i++)
 	{
 		acc = acc << 1;
 		if (ob[i] == 1) acc = acc ^ 0x01;
@@ -2407,7 +2419,7 @@ void setupecc()
 	// calculate all information needed to implement error correction
 	srr = 0x3B4;
 
-	for (i=0; i<=20; i++)
+	for (i = 0; i <= 20; i++)
 	{
 		ecs[i] = srr;
 		if ((srr & 0x01) != 0) srr = (srr >> 1) ^ 0x3B4;
@@ -2417,11 +2429,11 @@ void setupecc()
 	// bch holds a syndrome look-up table telling which bits to correct
 	// first 5 bits hold location of first error; next 5 bits hold location
 	// of second error; bits 12 & 13 tell how many bits are bad
-	for (i=0; i<1024; i++) bch[i] = 0;
+	for (i = 0; i < 1024; i++) bch[i] = 0;
 
-	for (n=0; n<=20; n++)	// two errors in data
+	for (n = 0; n <= 20; n++)	// two errors in data
 	{
-		for (i=0; i<=20; i++)
+		for (i = 0; i <= 20; i++)
 		{
 			j = (i << 5) + n;
 			k = ecs[n] ^ ecs[i];
@@ -2430,7 +2442,7 @@ void setupecc()
 	}
 
 	// one error in data
-	for (n=0; n<=20; n++)
+	for (n = 0; n <= 20; n++)
 	{
 		k = ecs[n];
 		j = n + (0x1f << 5);
@@ -2438,9 +2450,9 @@ void setupecc()
 	}
 
 	// one error in data and one error in ecc portion
-	for (n=0; n<=20; n++)
+	for (n = 0; n <= 20; n++)
 	{
-		for (i=0; i<10; i++)  // ecc screwed up bit
+		for (i = 0; i < 10; i++)  // ecc screwed up bit
 		{
 			k = ecs[n] ^ (1 << i);
 			j = n + (0x1f << 5);
@@ -2449,16 +2461,16 @@ void setupecc()
 	}
 
 	// one error in ecc
-	for (n=0; n<10; n++)
+	for (n = 0; n < 10; n++)
 	{
 		k = 1 << n;
 		bch[k] = 0x3ff + 0x1000;
 	}
 
 	// two errors in ecc
-	for (n=0; n<10; n++)
+	for (n = 0; n < 10; n++)
 	{
-		for (i=0; i<10; i++)
+		for (i = 0; i < 10; i++)
 		{
 			if (i != n)
 			{
@@ -2478,93 +2490,93 @@ void WriteStatFileHourly(FILE *fp)
 	fprintf(fp, "                 Msgs     Chars       Msgs     Chars\n");
 
 	fprintf(fp, "POCSAG-512   %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_POCSAG512][STAT_NUMERIC],
-				hourly_char[STAT_POCSAG512][STAT_NUMERIC],
-				hourly_stat[STAT_POCSAG512][STAT_ALPHA],
-				hourly_char[STAT_POCSAG512][STAT_ALPHA]);
+		hourly_stat[STAT_POCSAG512][STAT_NUMERIC],
+		hourly_char[STAT_POCSAG512][STAT_NUMERIC],
+		hourly_stat[STAT_POCSAG512][STAT_ALPHA],
+		hourly_char[STAT_POCSAG512][STAT_ALPHA]);
 
-	fprintf(fp ,"POCSAG-1200  %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_POCSAG1200][STAT_NUMERIC],
-				hourly_char[STAT_POCSAG1200][STAT_NUMERIC],
-				hourly_stat[STAT_POCSAG1200][STAT_ALPHA],
-				hourly_char[STAT_POCSAG1200][STAT_ALPHA]);
+	fprintf(fp, "POCSAG-1200  %8ld %9ld   %8ld %9ld\n",
+		hourly_stat[STAT_POCSAG1200][STAT_NUMERIC],
+		hourly_char[STAT_POCSAG1200][STAT_NUMERIC],
+		hourly_stat[STAT_POCSAG1200][STAT_ALPHA],
+		hourly_char[STAT_POCSAG1200][STAT_ALPHA]);
 
-	fprintf(fp ,"POCSAG-2400  %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_POCSAG2400][STAT_NUMERIC],
-				hourly_char[STAT_POCSAG2400][STAT_NUMERIC],
-				hourly_stat[STAT_POCSAG2400][STAT_ALPHA],
-				hourly_char[STAT_POCSAG2400][STAT_ALPHA]);
+	fprintf(fp, "POCSAG-2400  %8ld %9ld   %8ld %9ld\n",
+		hourly_stat[STAT_POCSAG2400][STAT_NUMERIC],
+		hourly_char[STAT_POCSAG2400][STAT_NUMERIC],
+		hourly_stat[STAT_POCSAG2400][STAT_ALPHA],
+		hourly_char[STAT_POCSAG2400][STAT_ALPHA]);
 
 	fprintf(fp, "FLEX-1600    %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_FLEX1600][STAT_NUMERIC],
-				hourly_char[STAT_FLEX1600][STAT_NUMERIC],
-				hourly_stat[STAT_FLEX1600][STAT_ALPHA],
-				hourly_char[STAT_FLEX1600][STAT_ALPHA]);
+		hourly_stat[STAT_FLEX1600][STAT_NUMERIC],
+		hourly_char[STAT_FLEX1600][STAT_NUMERIC],
+		hourly_stat[STAT_FLEX1600][STAT_ALPHA],
+		hourly_char[STAT_FLEX1600][STAT_ALPHA]);
 
 	fprintf(fp, "FLEX-3200    %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_FLEX3200][STAT_NUMERIC],
-				hourly_char[STAT_FLEX3200][STAT_NUMERIC],
-				hourly_stat[STAT_FLEX3200][STAT_ALPHA],
-				hourly_char[STAT_FLEX3200][STAT_ALPHA]);
+		hourly_stat[STAT_FLEX3200][STAT_NUMERIC],
+		hourly_char[STAT_FLEX3200][STAT_NUMERIC],
+		hourly_stat[STAT_FLEX3200][STAT_ALPHA],
+		hourly_char[STAT_FLEX3200][STAT_ALPHA]);
 
 	fprintf(fp, "FLEX-6400    %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_FLEX6400][STAT_NUMERIC],
-				hourly_char[STAT_FLEX6400][STAT_NUMERIC],
-				hourly_stat[STAT_FLEX6400][STAT_ALPHA],
-				hourly_char[STAT_FLEX6400][STAT_ALPHA]);
+		hourly_stat[STAT_FLEX6400][STAT_NUMERIC],
+		hourly_char[STAT_FLEX6400][STAT_NUMERIC],
+		hourly_stat[STAT_FLEX6400][STAT_ALPHA],
+		hourly_char[STAT_FLEX6400][STAT_ALPHA]);
 
 	fprintf(fp, "ACARS-2400   %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_ACARS2400][STAT_NUMERIC],
-				hourly_char[STAT_ACARS2400][STAT_NUMERIC],
-				hourly_stat[STAT_ACARS2400][STAT_ALPHA],
-				hourly_char[STAT_ACARS2400][STAT_ALPHA]);
+		hourly_stat[STAT_ACARS2400][STAT_NUMERIC],
+		hourly_char[STAT_ACARS2400][STAT_NUMERIC],
+		hourly_stat[STAT_ACARS2400][STAT_ALPHA],
+		hourly_char[STAT_ACARS2400][STAT_ALPHA]);
 
 	fprintf(fp, "MOBITEX      %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_MOBITEX][STAT_NUMERIC],
-				hourly_char[STAT_MOBITEX][STAT_NUMERIC],
-				hourly_stat[STAT_MOBITEX][STAT_ALPHA],
-				hourly_char[STAT_MOBITEX][STAT_ALPHA]);
+		hourly_stat[STAT_MOBITEX][STAT_NUMERIC],
+		hourly_char[STAT_MOBITEX][STAT_NUMERIC],
+		hourly_stat[STAT_MOBITEX][STAT_ALPHA],
+		hourly_char[STAT_MOBITEX][STAT_ALPHA]);
 
 	fprintf(fp, "ERMES        %8ld %9ld   %8ld %9ld\n",
-				hourly_stat[STAT_ERMES][STAT_NUMERIC],
-				hourly_char[STAT_ERMES][STAT_NUMERIC],
-				hourly_stat[STAT_ERMES][STAT_ALPHA],
-				hourly_char[STAT_ERMES][STAT_ALPHA]);
+		hourly_stat[STAT_ERMES][STAT_NUMERIC],
+		hourly_char[STAT_ERMES][STAT_NUMERIC],
+		hourly_stat[STAT_ERMES][STAT_ALPHA],
+		hourly_char[STAT_ERMES][STAT_ALPHA]);
 
 	fprintf(fp, "             -------- ---------   -------- ---------\n");
 
-	num_msg	=	hourly_stat[STAT_FLEX6400][STAT_NUMERIC] +
-				hourly_stat[STAT_FLEX3200][STAT_NUMERIC] +
-				hourly_stat[STAT_FLEX1600][STAT_NUMERIC] +
-				hourly_stat[STAT_POCSAG2400][STAT_NUMERIC] +
-				hourly_stat[STAT_POCSAG1200][STAT_NUMERIC] +
-				hourly_stat[STAT_POCSAG512][STAT_NUMERIC] +
-				hourly_stat[STAT_ACARS2400][STAT_NUMERIC] +
-				hourly_stat[STAT_MOBITEX][STAT_NUMERIC] +
-				hourly_stat[STAT_ERMES][STAT_NUMERIC];
-	num_char =	hourly_char[STAT_FLEX6400][STAT_NUMERIC] +
-				hourly_char[STAT_FLEX3200][STAT_NUMERIC] +
-				hourly_char[STAT_FLEX1600][STAT_NUMERIC] +
-				hourly_char[STAT_POCSAG2400][STAT_NUMERIC] +
-				hourly_char[STAT_POCSAG1200][STAT_NUMERIC] +
-				hourly_char[STAT_POCSAG512][STAT_NUMERIC] +
-				hourly_char[STAT_ERMES][STAT_NUMERIC];
+	num_msg = hourly_stat[STAT_FLEX6400][STAT_NUMERIC] +
+		hourly_stat[STAT_FLEX3200][STAT_NUMERIC] +
+		hourly_stat[STAT_FLEX1600][STAT_NUMERIC] +
+		hourly_stat[STAT_POCSAG2400][STAT_NUMERIC] +
+		hourly_stat[STAT_POCSAG1200][STAT_NUMERIC] +
+		hourly_stat[STAT_POCSAG512][STAT_NUMERIC] +
+		hourly_stat[STAT_ACARS2400][STAT_NUMERIC] +
+		hourly_stat[STAT_MOBITEX][STAT_NUMERIC] +
+		hourly_stat[STAT_ERMES][STAT_NUMERIC];
+	num_char = hourly_char[STAT_FLEX6400][STAT_NUMERIC] +
+		hourly_char[STAT_FLEX3200][STAT_NUMERIC] +
+		hourly_char[STAT_FLEX1600][STAT_NUMERIC] +
+		hourly_char[STAT_POCSAG2400][STAT_NUMERIC] +
+		hourly_char[STAT_POCSAG1200][STAT_NUMERIC] +
+		hourly_char[STAT_POCSAG512][STAT_NUMERIC] +
+		hourly_char[STAT_ERMES][STAT_NUMERIC];
 	alpha_msg = hourly_stat[STAT_FLEX6400][STAT_ALPHA] +
-				hourly_stat[STAT_FLEX3200][STAT_ALPHA] +
-				hourly_stat[STAT_FLEX1600][STAT_ALPHA] +
-				hourly_stat[STAT_POCSAG2400][STAT_ALPHA] +
-				hourly_stat[STAT_POCSAG1200][STAT_ALPHA] +
-				hourly_stat[STAT_POCSAG512][STAT_ALPHA] +
-				hourly_stat[STAT_ACARS2400][STAT_ALPHA] +
-				hourly_stat[STAT_MOBITEX][STAT_ALPHA] +
-				hourly_stat[STAT_ERMES][STAT_ALPHA];
-	alpha_char =hourly_char[STAT_FLEX6400][STAT_ALPHA] +
-				hourly_char[STAT_FLEX3200][STAT_ALPHA] +
-				hourly_char[STAT_FLEX1600][STAT_ALPHA] +
-				hourly_char[STAT_POCSAG2400][STAT_ALPHA] +
-				hourly_char[STAT_POCSAG1200][STAT_ALPHA] +
-				hourly_char[STAT_POCSAG512][STAT_ALPHA] +
-				hourly_char[STAT_ERMES][STAT_ALPHA];
+		hourly_stat[STAT_FLEX3200][STAT_ALPHA] +
+		hourly_stat[STAT_FLEX1600][STAT_ALPHA] +
+		hourly_stat[STAT_POCSAG2400][STAT_ALPHA] +
+		hourly_stat[STAT_POCSAG1200][STAT_ALPHA] +
+		hourly_stat[STAT_POCSAG512][STAT_ALPHA] +
+		hourly_stat[STAT_ACARS2400][STAT_ALPHA] +
+		hourly_stat[STAT_MOBITEX][STAT_ALPHA] +
+		hourly_stat[STAT_ERMES][STAT_ALPHA];
+	alpha_char = hourly_char[STAT_FLEX6400][STAT_ALPHA] +
+		hourly_char[STAT_FLEX3200][STAT_ALPHA] +
+		hourly_char[STAT_FLEX1600][STAT_ALPHA] +
+		hourly_char[STAT_POCSAG2400][STAT_ALPHA] +
+		hourly_char[STAT_POCSAG1200][STAT_ALPHA] +
+		hourly_char[STAT_POCSAG512][STAT_ALPHA] +
+		hourly_char[STAT_ERMES][STAT_ALPHA];
 
 	fprintf(fp, " Totals      %8ld %9ld   %8ld %9ld\n\n", num_msg, num_char, alpha_msg, alpha_char);
 
@@ -2580,95 +2592,95 @@ void WriteStatFileDaily(FILE *fp)
 	fprintf(fp, "                 Msgs     Chars       Msgs     Chars\n");
 
 	fprintf(fp, "POCSAG-512   %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_POCSAG512][STAT_NUMERIC],
-				daily_char[STAT_POCSAG512][STAT_NUMERIC],
-				daily_stat[STAT_POCSAG512][STAT_ALPHA],
-				daily_char[STAT_POCSAG512][STAT_ALPHA]);
+		daily_stat[STAT_POCSAG512][STAT_NUMERIC],
+		daily_char[STAT_POCSAG512][STAT_NUMERIC],
+		daily_stat[STAT_POCSAG512][STAT_ALPHA],
+		daily_char[STAT_POCSAG512][STAT_ALPHA]);
 
 	fprintf(fp, "POCSAG-1200  %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_POCSAG1200][STAT_NUMERIC],
-				daily_char[STAT_POCSAG1200][STAT_NUMERIC],
-				daily_stat[STAT_POCSAG1200][STAT_ALPHA],
-				daily_char[STAT_POCSAG1200][STAT_ALPHA]);
+		daily_stat[STAT_POCSAG1200][STAT_NUMERIC],
+		daily_char[STAT_POCSAG1200][STAT_NUMERIC],
+		daily_stat[STAT_POCSAG1200][STAT_ALPHA],
+		daily_char[STAT_POCSAG1200][STAT_ALPHA]);
 
 	fprintf(fp, "POCSAG-2400  %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_POCSAG2400][STAT_NUMERIC],
-				daily_char[STAT_POCSAG2400][STAT_NUMERIC],
-				daily_stat[STAT_POCSAG2400][STAT_ALPHA],
-				daily_char[STAT_POCSAG2400][STAT_ALPHA]);
+		daily_stat[STAT_POCSAG2400][STAT_NUMERIC],
+		daily_char[STAT_POCSAG2400][STAT_NUMERIC],
+		daily_stat[STAT_POCSAG2400][STAT_ALPHA],
+		daily_char[STAT_POCSAG2400][STAT_ALPHA]);
 
 	fprintf(fp, "FLEX-1600    %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_FLEX1600][STAT_NUMERIC],
-				daily_char[STAT_FLEX1600][STAT_NUMERIC],
-				daily_stat[STAT_FLEX1600][STAT_ALPHA],
-				daily_char[STAT_FLEX1600][STAT_ALPHA]);
+		daily_stat[STAT_FLEX1600][STAT_NUMERIC],
+		daily_char[STAT_FLEX1600][STAT_NUMERIC],
+		daily_stat[STAT_FLEX1600][STAT_ALPHA],
+		daily_char[STAT_FLEX1600][STAT_ALPHA]);
 
 	fprintf(fp, "FLEX-3200    %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_FLEX3200][STAT_NUMERIC],
-				daily_char[STAT_FLEX3200][STAT_NUMERIC],
-				daily_stat[STAT_FLEX3200][STAT_ALPHA],
-				daily_char[STAT_FLEX3200][STAT_ALPHA]);
+		daily_stat[STAT_FLEX3200][STAT_NUMERIC],
+		daily_char[STAT_FLEX3200][STAT_NUMERIC],
+		daily_stat[STAT_FLEX3200][STAT_ALPHA],
+		daily_char[STAT_FLEX3200][STAT_ALPHA]);
 
 	fprintf(fp, "FLEX-6400    %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_FLEX6400][STAT_NUMERIC],
-				daily_char[STAT_FLEX6400][STAT_NUMERIC],
-				daily_stat[STAT_FLEX6400][STAT_ALPHA],
-				daily_char[STAT_FLEX6400][STAT_ALPHA]);
+		daily_stat[STAT_FLEX6400][STAT_NUMERIC],
+		daily_char[STAT_FLEX6400][STAT_NUMERIC],
+		daily_stat[STAT_FLEX6400][STAT_ALPHA],
+		daily_char[STAT_FLEX6400][STAT_ALPHA]);
 
 	fprintf(fp, "ACARS-2400   %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_ACARS2400][STAT_NUMERIC],
-				daily_char[STAT_ACARS2400][STAT_NUMERIC],
-				daily_stat[STAT_ACARS2400][STAT_ALPHA],
-				daily_char[STAT_ACARS2400][STAT_ALPHA]);
+		daily_stat[STAT_ACARS2400][STAT_NUMERIC],
+		daily_char[STAT_ACARS2400][STAT_NUMERIC],
+		daily_stat[STAT_ACARS2400][STAT_ALPHA],
+		daily_char[STAT_ACARS2400][STAT_ALPHA]);
 
 	fprintf(fp, "MOBITEX      %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_MOBITEX][STAT_NUMERIC],
-				daily_char[STAT_MOBITEX][STAT_NUMERIC],
-				daily_stat[STAT_MOBITEX][STAT_ALPHA],
-				daily_char[STAT_MOBITEX][STAT_ALPHA]);
+		daily_stat[STAT_MOBITEX][STAT_NUMERIC],
+		daily_char[STAT_MOBITEX][STAT_NUMERIC],
+		daily_stat[STAT_MOBITEX][STAT_ALPHA],
+		daily_char[STAT_MOBITEX][STAT_ALPHA]);
 
 	fprintf(fp, "ERMES        %8ld %9ld   %8ld %9ld\n",
-				daily_stat[STAT_ERMES][STAT_NUMERIC],
-				daily_char[STAT_ERMES][STAT_NUMERIC],
-				daily_stat[STAT_ERMES][STAT_ALPHA],
-				daily_char[STAT_ERMES][STAT_ALPHA]);
+		daily_stat[STAT_ERMES][STAT_NUMERIC],
+		daily_char[STAT_ERMES][STAT_NUMERIC],
+		daily_stat[STAT_ERMES][STAT_ALPHA],
+		daily_char[STAT_ERMES][STAT_ALPHA]);
 
-//--Endof ERMES
+	//--Endof ERMES
 
 	fprintf(fp, "             -------- ---------   -------- ---------\n");
 
-	num_msg =	daily_stat[STAT_FLEX6400][STAT_NUMERIC] +
-				daily_stat[STAT_FLEX3200][STAT_NUMERIC] +
-				daily_stat[STAT_FLEX1600][STAT_NUMERIC] +
-				daily_stat[STAT_POCSAG2400][STAT_NUMERIC] +
-				daily_stat[STAT_POCSAG1200][STAT_NUMERIC] +
-				daily_stat[STAT_POCSAG512][STAT_NUMERIC] +
-				daily_stat[STAT_ACARS2400][STAT_NUMERIC] +
-				daily_stat[STAT_MOBITEX][STAT_NUMERIC] +
-				daily_stat[STAT_ERMES][STAT_NUMERIC];
-	num_char =	daily_char[STAT_FLEX6400][STAT_NUMERIC] +
-				daily_char[STAT_FLEX3200][STAT_NUMERIC] +
-				daily_char[STAT_FLEX1600][STAT_NUMERIC] +
-				daily_char[STAT_POCSAG2400][STAT_NUMERIC] +
-				daily_char[STAT_POCSAG1200][STAT_NUMERIC] +
-				daily_char[STAT_POCSAG512][STAT_NUMERIC] +
-				daily_char[STAT_ERMES][STAT_NUMERIC];
+	num_msg = daily_stat[STAT_FLEX6400][STAT_NUMERIC] +
+		daily_stat[STAT_FLEX3200][STAT_NUMERIC] +
+		daily_stat[STAT_FLEX1600][STAT_NUMERIC] +
+		daily_stat[STAT_POCSAG2400][STAT_NUMERIC] +
+		daily_stat[STAT_POCSAG1200][STAT_NUMERIC] +
+		daily_stat[STAT_POCSAG512][STAT_NUMERIC] +
+		daily_stat[STAT_ACARS2400][STAT_NUMERIC] +
+		daily_stat[STAT_MOBITEX][STAT_NUMERIC] +
+		daily_stat[STAT_ERMES][STAT_NUMERIC];
+	num_char = daily_char[STAT_FLEX6400][STAT_NUMERIC] +
+		daily_char[STAT_FLEX3200][STAT_NUMERIC] +
+		daily_char[STAT_FLEX1600][STAT_NUMERIC] +
+		daily_char[STAT_POCSAG2400][STAT_NUMERIC] +
+		daily_char[STAT_POCSAG1200][STAT_NUMERIC] +
+		daily_char[STAT_POCSAG512][STAT_NUMERIC] +
+		daily_char[STAT_ERMES][STAT_NUMERIC];
 	alpha_msg = daily_stat[STAT_FLEX6400][STAT_ALPHA] +
-				daily_stat[STAT_FLEX3200][STAT_ALPHA] +
-				daily_stat[STAT_FLEX1600][STAT_ALPHA] +
-				daily_stat[STAT_POCSAG2400][STAT_ALPHA] +
-				daily_stat[STAT_POCSAG1200][STAT_ALPHA] +
-				daily_stat[STAT_POCSAG512][STAT_ALPHA] +
-				daily_stat[STAT_ACARS2400][STAT_ALPHA] +
-				daily_stat[STAT_MOBITEX][STAT_ALPHA] +
-				daily_stat[STAT_ERMES][STAT_ALPHA];
-	alpha_char= daily_char[STAT_FLEX6400][STAT_ALPHA] +
-				daily_char[STAT_FLEX3200][STAT_ALPHA] +
-				daily_char[STAT_FLEX1600][STAT_ALPHA] +
-				daily_char[STAT_POCSAG2400][STAT_ALPHA] +
-				daily_char[STAT_POCSAG1200][STAT_ALPHA] +
-				daily_char[STAT_POCSAG512][STAT_ALPHA] +
-				daily_char[STAT_ERMES][STAT_ALPHA];
+		daily_stat[STAT_FLEX3200][STAT_ALPHA] +
+		daily_stat[STAT_FLEX1600][STAT_ALPHA] +
+		daily_stat[STAT_POCSAG2400][STAT_ALPHA] +
+		daily_stat[STAT_POCSAG1200][STAT_ALPHA] +
+		daily_stat[STAT_POCSAG512][STAT_ALPHA] +
+		daily_stat[STAT_ACARS2400][STAT_ALPHA] +
+		daily_stat[STAT_MOBITEX][STAT_ALPHA] +
+		daily_stat[STAT_ERMES][STAT_ALPHA];
+	alpha_char = daily_char[STAT_FLEX6400][STAT_ALPHA] +
+		daily_char[STAT_FLEX3200][STAT_ALPHA] +
+		daily_char[STAT_FLEX1600][STAT_ALPHA] +
+		daily_char[STAT_POCSAG2400][STAT_ALPHA] +
+		daily_char[STAT_POCSAG1200][STAT_ALPHA] +
+		daily_char[STAT_POCSAG512][STAT_ALPHA] +
+		daily_char[STAT_ERMES][STAT_ALPHA];
 
 	fprintf(fp, "  Totals     %8ld %9ld   %8ld %9ld\n", num_msg, num_char, alpha_msg, alpha_char);
 
@@ -2679,34 +2691,34 @@ void WriteStatFileDaily(FILE *fp)
 void CountBiterrors(int errors)
 {
 	extern double dRX_Quality;
-	static int nErrors=5, nErrorChecks=100, noerrors=0, count=0;
+	static int nErrors = 5, nErrorChecks = 100, noerrors = 0, count = 0;
 
 	if (errors)
 	{
-		nErrorChecks+=abs(errors);
-		noerrors=0;
-		count=1;
+		nErrorChecks += abs(errors);
+		noerrors = 0;
+		count = 1;
 	}
 	else
 	{
 		nErrorChecks++;
 		noerrors++;
 	}
-	nErrors+=errors;
+	nErrors += errors;
 
 	if (nErrorChecks > 10000)
 	{
-		nErrorChecks/=1.999;
-		nErrors/=2;
+		nErrorChecks /= 1.999;
+		nErrors /= 2;
 	}
 	if (noerrors > 50)
 	{
 		count++;
-		nErrors-=count;
-		if (nErrors < 0) nErrors=0;
-		noerrors=0;
+		nErrors -= count;
+		if (nErrors < 0) nErrors = 0;
+		noerrors = 0;
 	}
-	dRX_Quality = 100 - ((double)(nErrors*100)/nErrorChecks);
+	dRX_Quality = 100 - ((double)(nErrors * 100) / nErrorChecks);
 }
 
 
@@ -2714,22 +2726,22 @@ void Get_Date_Time(void)
 {
 	switch (Profile.DateFormat)
 	{
-		default:
-		case 0:
-			GetDateFormat(LOCALE_USER_DEFAULT, 0, NULL, "dd'-'MM'-'yy", szCurrentDate, 40);
+	default:
+	case 0:
+		GetDateFormat(LOCALE_USER_DEFAULT, 0, NULL, "dd'-'MM'-'yy", szCurrentDate, 40);
 		break;
 
-		case 1:
-			GetDateFormat(LOCALE_USER_DEFAULT, 0, NULL, "MM'-'dd'-'yy", szCurrentDate, 40);
+	case 1:
+		GetDateFormat(LOCALE_USER_DEFAULT, 0, NULL, "MM'-'dd'-'yy", szCurrentDate, 40);
 		break;
 
-		case 2:
-			GetDateFormat(LOCALE_USER_DEFAULT, 0, NULL, "yy'-'MM'-'dd", szCurrentDate, 40);
+	case 2:
+		GetDateFormat(LOCALE_USER_DEFAULT, 0, NULL, "yy'-'MM'-'dd", szCurrentDate, 40);
 		break;
 	}
 
 	GetTimeFormat(LOCALE_USER_DEFAULT, TIME_FORCE24HOURFORMAT,
-												  NULL, "HH':'mm':'ss", szCurrentTime, 40);
+		NULL, "HH':'mm':'ss", szCurrentTime, 40);
 }
 
 
@@ -2737,6 +2749,6 @@ void InvertData(void)
 {
 	Profile.invert ^= 0x01; // Flip receive polarity
 
-	low_audio  = Profile.invert ? DEFAULT_HI_AUDIO : DEFAULT_LO_AUDIO;
+	low_audio = Profile.invert ? DEFAULT_HI_AUDIO : DEFAULT_LO_AUDIO;
 	high_audio = Profile.invert ? DEFAULT_LO_AUDIO : DEFAULT_HI_AUDIO;
 }

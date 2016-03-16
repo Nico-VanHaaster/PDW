@@ -304,6 +304,7 @@
 #include "utils\debug.h"
 #include "utils\ostype.h"
 #include "utils\smtp.h"
+#include "utils\messagequeue.h"
 
 #include "headers\helper_funcs.h"	// Extra functies van Andreas
 
@@ -692,6 +693,10 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 			SetTimer(ghWnd, PDW_TIMER, 100, (TIMERPROC) NULL); // start timer.
 		}
 	}
+
+	if (Profile.MESSAGE_QUEUE)
+		StartMQMonitor();
+
 	SetTimer(ghWnd, MINUTE_TIMER, 1000*60, (TIMERPROC) NULL); // start minute timer
 	SetTimer(ghWnd, SECOND_TIMER, 1000,    (TIMERPROC) NULL); // start second timer
 
