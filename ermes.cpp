@@ -120,7 +120,7 @@ int ERMES::lOnes(long int k)
 		if ((k & 0x0001l) != 0l) kt++;
 		k = k >> 1;
 	}
-	return(kt);
+	return(k);
 }
 
 

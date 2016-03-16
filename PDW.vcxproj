@@ -1,0 +1,215 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectName>PDW3_0</ProjectName>
+    <SccProjectName />
+    <SccLocalPath />
+    <ProjectGuid>{A6883538-D3F1-48F2-83B6-F46D9CDDDE8F}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.Cpp.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.Cpp.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>.\Debug\</OutDir>
+    <IntDir>.\Debug\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>.\Release\</OutDir>
+    <IntDir>.\Release\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <Optimization>Disabled</Optimization>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <WarningLevel>Level3</WarningLevel>
+      <MinimalRebuild>true</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
+      <BrowseInformation>true</BrowseInformation>
+      <PrecompiledHeaderOutputFile>.\Debug\PDW.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\Debug\</ObjectFileName>
+      <ProgramDataBaseFileName>.\Debug\</ProgramDataBaseFileName>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+    </ClCompile>
+    <Midl>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TypeLibraryName>.\Debug\PDW.tlb</TypeLibraryName>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <TargetEnvironment>Win32</TargetEnvironment>
+    </Midl>
+    <ResourceCompile>
+      <Culture>0x0809</Culture>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>Debug/PDW3_0.bsc</OutputFile>
+    </Bscmake>
+    <Link>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <OutputFile>Debug/PDW3_0.exe</OutputFile>
+      <AdditionalDependencies>winmm.lib;comctl32.lib;odbc32.lib;odbccp32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <StringPooling>true</StringPooling>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <Optimization>MaxSpeed</Optimization>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AssemblerListingLocation>.\Release\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\Release\PDW.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\Release\</ObjectFileName>
+      <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
+    </ClCompile>
+    <Midl>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TypeLibraryName>.\Release\PDW.tlb</TypeLibraryName>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <TargetEnvironment>Win32</TargetEnvironment>
+    </Midl>
+    <ResourceCompile>
+      <Culture>0x0809</Culture>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>Release/PDW3_0.bsc</OutputFile>
+    </Bscmake>
+    <Link>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <SubSystem>Windows</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <OutputFile>Release/PDW3_0.exe</OutputFile>
+      <AdditionalDependencies>winmm.lib;comctl32.lib;ws2_32.lib;wininet.lib;libcmt.lib;oldnames.lib;libcpmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="acars.cpp" />
+    <ClCompile Include="decode.cpp" />
+    <ClCompile Include="ermes.cpp" />
+    <ClCompile Include="Flex.cpp" />
+    <ClCompile Include="Gfx.cpp" />
+    <ClCompile Include="helper_funcs.cpp" />
+    <ClCompile Include="Initapp.cpp" />
+    <ClCompile Include="language.cpp" />
+    <ClCompile Include="menu.cpp" />
+    <ClCompile Include="Misc.cpp" />
+    <ClCompile Include="mobitex.cpp" />
+    <ClCompile Include="PDW.cpp" />
+    <ClCompile Include="Pocsag.cpp" />
+    <ClCompile Include="printer.cpp" />
+    <ClCompile Include="sigind.cpp" />
+    <ClCompile Include="sound_in.cpp" />
+    <ClCompile Include="toolbar.cpp" />
+    <ClCompile Include="utils\binary.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="utils\Debug.cpp" />
+    <ClCompile Include="utils\Ostype.cpp" />
+    <ClCompile Include="utils\rs232.cpp" />
+    <ClCompile Include="utils\smtp.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Rsrc.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Headers\acars.h" />
+    <ClInclude Include="Headers\decode.h" />
+    <ClInclude Include="Headers\ermes.h" />
+    <ClInclude Include="Headers\gfx.h" />
+    <ClInclude Include="Headers\helper_funcs.h" />
+    <ClInclude Include="Headers\initapp.h" />
+    <ClInclude Include="Headers\language.h" />
+    <ClInclude Include="Headers\menu.h" />
+    <ClInclude Include="Headers\misc.h" />
+    <ClInclude Include="Headers\mobitex.h" />
+    <ClInclude Include="Headers\Pdw.h" />
+    <ClInclude Include="Headers\printer.h" />
+    <ClInclude Include="Headers\Resource.h" />
+    <ClInclude Include="Headers\sigind.h" />
+    <ClInclude Include="Headers\Slicer.h" />
+    <ClInclude Include="Headers\sound_in.h" />
+    <ClInclude Include="Headers\toolbar.h" />
+    <ClInclude Include="resrc1.h" />
+    <ClInclude Include="utils\binary.h" />
+    <ClInclude Include="utils\OSTYPE.H" />
+    <ClInclude Include="utils\rs232.h" />
+    <ClInclude Include="utils\smtp.h" />
+    <ClInclude Include="utils\smtp_int.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="GFX\211.gif" />
+    <Image Include="Gfx\clr.bmp" />
+    <Image Include="Gfx\copy.bmp" />
+    <Image Include="Gfx\cpyLO.bmp" />
+    <Image Include="Gfx\cpyUP.bmp" />
+    <Image Include="GFX\exclamation.bmp" />
+    <Image Include="Gfx\filter.bmp" />
+    <Image Include="Gfx\help.BMP" />
+    <Image Include="Gfx\mode.bmp" />
+    <Image Include="Gfx\open.bmp" />
+    <Image Include="Gfx\options.bmp" />
+    <Image Include="Gfx\pause.bmp" />
+    <Image Include="Gfx\pdw.ico" />
+    <Image Include="Gfx\pdwlogo2.bmp" />
+    <Image Include="Gfx\prt.bmp" />
+    <Image Include="Gfx\save.bmp" />
+    <Image Include="Gfx\sigind.bmp" />
+    <Image Include="Gfx\stats.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="PDW3_0.exe.manifest" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

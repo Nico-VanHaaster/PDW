@@ -42,7 +42,7 @@
 
 
 // These help decide when we cross the zero line.
-int au_threshold[10] = {0, 1, 2, 5, 9, 14, 17, 24, 30, 44};
+int au_threshold[10] = { 0, 1, 2, 5, 9, 14, 17, 24, 30, 44 };
 
 // Used for offsetting bit center / zero center
 int au_offset_center[10] = { 0, 1, -1, 2, -2, 3, -3, 4, -4, 5 };
@@ -50,33 +50,33 @@ int au_offset_center[10] = { 0, 1, -1, 2, -2, 3, -3, 4, -4, 5 };
 HWAVEIN  hWaveIn;                    // Handle to audio device
 HWAVEOUT hWaveOut;                   // Handle to audio device
 WAVEHDR WaveHeader[NUMBER_BUFFERS];  // Audio buffers to be put into audio queue
-int buffers_ready=0;                 // Used by callback function to indicate buffer(s) ready
+int buffers_ready = 0;                 // Used by callback function to indicate buffer(s) ready
 int last_buff_processed = -1;        // Used for predicting next buffer to be filled.
-bool bCapturing=false;               // Used to check to see if capturing is enabled.
-char high_audio=DEFAULT_HI_AUDIO;
-char low_audio =DEFAULT_LO_AUDIO;
+bool bCapturing = false;               // Used to check to see if capturing is enabled.
+char high_audio = DEFAULT_HI_AUDIO;
+char low_audio = DEFAULT_LO_AUDIO;
 
 // Preamble search variables - Used by Audio_To_Bits()
-static char val=0;
-int nSamples=0;
-int preamble_count[3]={0};
-int flex_cnt_1600=0;
-int sync_bit=DEFAULT_LO_AUDIO;
-int crossing=0;
-int pre_threshold=0;
+static char val = 0;
+int nSamples = 0;
+int preamble_count[3] = { 0 };
+int flex_cnt_1600 = 0;
+int sync_bit = DEFAULT_LO_AUDIO;
+int crossing = 0;
+int pre_threshold = 0;
 
 // Main loop variables - Used by Audio_To_Bits()
 long atb_ctr;
-char atb_bit=0;
+char atb_bit = 0;
 int atb_value;
-int atb_len=0;
+int atb_len = 0;
 long double WatchStep;
 long double clkt_hi = FINE_CLKT_HI;
 long double clkt_lo = FINE_CLKT_LO;
 double WatchCtr;
 long BaudRate = 1600;	// default
 long last_baud_rate = 0;
-int atb_sig_cnt=0;           // When to update signal indicator.
+int atb_sig_cnt = 0;           // When to update signal indicator.
 int atb_center[5];           // Used for centering bit stream.
 int atb_threshold[5];
 int atb_sample_offset[5];
@@ -110,7 +110,7 @@ extern bool bMode_IDLE;
 //
 BOOL Start_Capturing(void)
 {
-	WAVEFORMATEX my_wave_format={0};
+	WAVEFORMATEX my_wave_format = { 0 };
 	HGLOBAL h_memory_block = NULL;
 	LPSTR  lp_memory_block = NULL;
 	MMRESULT result;
@@ -119,57 +119,57 @@ BOOL Start_Capturing(void)
 	bCapturing = false;
 
 	// Describe the type of audio connection we want to open
-	my_wave_format.wFormatTag		= WAVE_FORMAT_PCM;
-	my_wave_format.nChannels		= 1;
-	my_wave_format.nSamplesPerSec	= Profile.audioSampleRate;
-	my_wave_format.nAvgBytesPerSec	= (DWORD)Profile.audioSampleRate;
-	my_wave_format.nBlockAlign		= 1;
-	my_wave_format.wBitsPerSample	= 8;
-	my_wave_format.cbSize			= 0;
+	my_wave_format.wFormatTag = WAVE_FORMAT_PCM;
+	my_wave_format.nChannels = 1;
+	my_wave_format.nSamplesPerSec = Profile.audioSampleRate;
+	my_wave_format.nAvgBytesPerSec = (DWORD)Profile.audioSampleRate;
+	my_wave_format.nBlockAlign = 1;
+	my_wave_format.wBitsPerSample = 8;
+	my_wave_format.cbSize = 0;
 
 	// Open audio device meeting our requirements
 	waveOutOpen(&hWaveOut, WAVE_MAPPER, &my_wave_format,
-			(DWORD)Callback_Function, 0, CALLBACK_FUNCTION);
+		(DWORD)Callback_Function, 0, CALLBACK_FUNCTION);
 
 	result = waveInOpen(&hWaveIn, Profile.audioDevice, &my_wave_format,
-			(DWORD)Callback_Function, 0, CALLBACK_FUNCTION);
+		(DWORD)Callback_Function, 0, CALLBACK_FUNCTION);
 
 	if (result) // error?
 	{
-		switch(result)
+		switch (result)
 		{
-			case MMSYSERR_ALLOCATED:
-				msg = "ERROR: Audio device already allocated!";
-				break;
-			case MMSYSERR_BADDEVICEID:
-				msg = "ERROR: Audio device ID error!";
-				break;
-			case MMSYSERR_NODRIVER:
-				msg = "ERROR: No Audio device driver present!";
-				break;
-			case MMSYSERR_NOMEM:
-				msg = "ERROR: No memory for Audio device!";
-				break;
-			case WAVERR_BADFORMAT:
-				msg = "ERROR: WAVE_FORMAT_PCM not supported!";
-				break;
-			default:
-				msg = "ERROR: Unable to open the audio device!";
-				break;
+		case MMSYSERR_ALLOCATED:
+			msg = "ERROR: Audio device already allocated!";
+			break;
+		case MMSYSERR_BADDEVICEID:
+			msg = "ERROR: Audio device ID error!";
+			break;
+		case MMSYSERR_NODRIVER:
+			msg = "ERROR: No Audio device driver present!";
+			break;
+		case MMSYSERR_NOMEM:
+			msg = "ERROR: No memory for Audio device!";
+			break;
+		case WAVERR_BADFORMAT:
+			msg = "ERROR: WAVE_FORMAT_PCM not supported!";
+			break;
+		default:
+			msg = "ERROR: Unable to open the audio device!";
+			break;
 		}
 
 		lstrcpy(szDialogErrorMsg, TEXT(msg));
-		MessageBox(ghWnd, msg, "PDW Soundcard",MB_ICONERROR);
+		MessageBox(ghWnd, msg, "PDW Soundcard", MB_ICONERROR);
 
 		return(FALSE);
 	}
-    
+
 	// Prepare buffers and add them to the input queue for the Audio API to fill.
-	for (int ctr=0; ctr<NUMBER_BUFFERS; ctr++)
+	for (int ctr = 0; ctr < NUMBER_BUFFERS; ctr++)
 	{
 		h_memory_block = (HGLOBAL)GlobalAlloc(GHND, SIZEOF_AUDIOBUFFER);
 
-		if(!h_memory_block)
+		if (!h_memory_block)
 		{
 			waveInClose(hWaveIn);
 			free_audio_buffers();
@@ -177,7 +177,7 @@ BOOL Start_Capturing(void)
 		}
 		lp_memory_block = (LPSTR)GlobalLock(h_memory_block);
 
-		if(!lp_memory_block)
+		if (!lp_memory_block)
 		{
 			waveInClose(hWaveIn);
 			free_audio_buffers();
@@ -188,20 +188,20 @@ BOOL Start_Capturing(void)
 		h_audio_memory_block[ctr] = h_memory_block;
 		audio_buffer_cnt++;
 
-		WaveHeader[ctr].dwFlags			= 0;
-		WaveHeader[ctr].dwLoops			= 0;
-		WaveHeader[ctr].dwUser			= 0;
-		WaveHeader[ctr].lpNext			= 0;
-		WaveHeader[ctr].dwBufferLength	= SIZEOF_AUDIOBUFFER;
-		WaveHeader[ctr].dwBytesRecorded	= 0;
-		WaveHeader[ctr].lpData			= (LPSTR)lp_memory_block;
+		WaveHeader[ctr].dwFlags = 0;
+		WaveHeader[ctr].dwLoops = 0;
+		WaveHeader[ctr].dwUser = 0;
+		WaveHeader[ctr].lpNext = 0;
+		WaveHeader[ctr].dwBufferLength = SIZEOF_AUDIOBUFFER;
+		WaveHeader[ctr].dwBytesRecorded = 0;
+		WaveHeader[ctr].lpData = (LPSTR)lp_memory_block;
 
 		waveInPrepareHeader(hWaveIn, &WaveHeader[ctr], (UINT)sizeof(WaveHeader[ctr]));
 
 		// Add buffer to input queue
 		waveInAddBuffer(hWaveIn, &WaveHeader[ctr], (UINT)sizeof(WaveHeader[ctr]));
 	}
-    
+
 	last_buff_processed = -1;
 
 	Reset_ATB(); // Reset all variables used by Audio_To_Bits().
@@ -220,7 +220,7 @@ BOOL Start_Capturing(void)
 //   Resets the connection to the audio device and closes it.
 //
 BOOL Stop_Capturing(void)
-{   
+{
 	bCapturing = false;
 
 	// Reset the audio connection... takes waiting buffers out of input queue
@@ -246,7 +246,7 @@ void free_audio_buffers(void)
 {
 	if (!audio_buffer_cnt) return;	// Were any buffers allocated?
 
-	for (int i=0; i<audio_buffer_cnt; i++)
+	for (int i = 0; i < audio_buffer_cnt; i++)
 	{
 		GlobalUnlock(h_audio_memory_block[i]);
 		GlobalFree(h_audio_memory_block[i]);
@@ -279,7 +279,7 @@ void Process_ReadyBuffers(HWND hwnd)
 			if (!pocbit)	// Don't reset if POCSAG signal found immediately after flex signal.
 			{
 				BaudRate = 1600;
-				config_index=INDEX1600;
+				config_index = INDEX1600;
 				display_showmo(MODE_IDLE);
 			}
 		}
@@ -293,38 +293,37 @@ void Process_ReadyBuffers(HWND hwnd)
 	check_save_data();      // Log messages/status info.
 	old_buffs_ready = buffers_ready;
 
-	for (int ctr=0; ctr<old_buffs_ready; ctr++)
+	for (int ctr = 0; ctr < old_buffs_ready; ctr++)
 	{
 		last_buff_processed++;
 
-		if (last_buff_processed > (NUMBER_BUFFERS-1)) last_buff_processed = 0;
+		if (last_buff_processed > (NUMBER_BUFFERS - 1)) last_buff_processed = 0;
 
 		// Do main data processing.
- 
+
 		if (Profile.monitor_paging)		// POCSAG/FLEX decoding?
 		{
-			Audio_To_Bits(WaveHeader[last_buff_processed].lpData,
-			WaveHeader[last_buff_processed].dwBufferLength);
+ 			Audio_To_Bits(WaveHeader[last_buff_processed].lpData, WaveHeader[last_buff_processed].dwBufferLength);
 		}
 		else if (Profile.monitor_acars)	// ACARS..
 		{
 			ACARS_To_Bits(WaveHeader[last_buff_processed].lpData,
-			WaveHeader[last_buff_processed].dwBufferLength);
+				WaveHeader[last_buff_processed].dwBufferLength);
 		}
 		else if (Profile.monitor_mobitex)// or MOBITEX....
 		{
 			MOBITEX_To_Bits(WaveHeader[last_buff_processed].lpData,
-			WaveHeader[last_buff_processed].dwBufferLength);
+				WaveHeader[last_buff_processed].dwBufferLength);
 		}
-//		else if (Profile.monitor_ermes)	// or ERMES (test)
-//		{
-//			ERMES_To_Bits(WaveHeader[last_buff_processed].lpData,
-//			WaveHeader[last_buff_processed].dwBufferLength);
-//		}
-            
-		// Add audio buffer back to input queue
+		//		else if (Profile.monitor_ermes)	// or ERMES (test)
+		//		{
+		//			ERMES_To_Bits(WaveHeader[last_buff_processed].lpData,
+		//			WaveHeader[last_buff_processed].dwBufferLength);
+		//		}
+
+				// Add audio buffer back to input queue
 		waveInAddBuffer(hWaveIn, &WaveHeader[last_buff_processed],
-							(UINT)sizeof(WaveHeader[last_buff_processed]));
+			(UINT)sizeof(WaveHeader[last_buff_processed]));
 	}
 	buffers_ready -= old_buffs_ready;
 }
@@ -351,7 +350,7 @@ void Reset_ATB(void)
 	flex_cnt_1600 = 0;
 	WatchCtr = -1;
 	atb_bit = low_audio;
-	config_index=INDEX1600;
+	config_index = INDEX1600;
 	cross_over = 0;
 	skipped_sc = 0;
 	process_acars_bit = 0;
@@ -359,20 +358,20 @@ void Reset_ATB(void)
 	if (Profile.monitor_mobitex)
 	{
 		clkt_hi = COURSE_CLKT_HI;
-		clkt_lo = COURSE_CLKT_LO;       
+		clkt_lo = COURSE_CLKT_LO;
 		BaudRate = mb.bitrate;
 		last_baud_rate = mb.bitrate;
 	}
 	else
 	{
 		clkt_hi = FINE_CLKT_HI;
-		clkt_lo = FINE_CLKT_LO;       
+		clkt_lo = FINE_CLKT_LO;
 		BaudRate = 1600;
 		last_baud_rate = 1600;
 	}
 
 	// WatchStep is how often to check for bit in buffer
-	WatchStep = (long double) Profile.audioSampleRate / (long double) BaudRate;
+	WatchStep = (long double)Profile.audioSampleRate / (long double)BaudRate;
 }
 
 /* Audio_To_Bits
@@ -396,22 +395,22 @@ void Audio_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 		if (BaudRate != last_baud_rate)
 		{
 			// WatchStep is how often to check for bit in buffer
-			WatchStep = (long double) Profile.audioSampleRate / (long double) BaudRate;
+			WatchStep = (long double)Profile.audioSampleRate / (long double)BaudRate;
 
 			if (BaudRate > 2400)	// 3200 baud = 6400 FLEX.
 			{
-				config_index=INDEX3200;
+				config_index = INDEX3200;
 				clkt_hi = FINE_CLKT3200_HI;
-				clkt_lo = FINE_CLKT3200_LO;                                      
+				clkt_lo = FINE_CLKT3200_LO;
 			}
 			else if (BaudRate == 1600)	// Variables for dealing with 1600/3200 crossover (see flex.cpp)
 			{
 				cross_over = 0;
 				g_sps2 = 1600;
 				skipped_sc = 0;
-				config_index=INDEX1600;
+				config_index = INDEX1600;
 				clkt_hi = FINE_CLKT_HI;
-				clkt_lo = FINE_CLKT_LO;                                      
+				clkt_lo = FINE_CLKT_LO;
 			}
 			else WatchCtr = -1;			// If flex don't reset..
 
@@ -430,17 +429,17 @@ void Audio_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 		if ((val < (-pre_threshold)) && (sync_bit == high_audio))
 		{
 			sync_bit = low_audio;
-			crossing=1;
+			crossing = 1;
 		}
 		else if ((val > pre_threshold) && (sync_bit == low_audio))
 		{
 			sync_bit = high_audio;
-			crossing=1;
+			crossing = 1;
 		}
 
 		if (crossing && !pocbit)		// Look for POCSAG preamble...
 		{
-			crossing=0;
+			crossing = 0;
 
 			if (!flex_timer)
 			{
@@ -455,65 +454,65 @@ void Audio_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 			{
 				// Check for 512 Preamble.
 				if ((nSamples > 64) && (nSamples < 108)) preamble_count[INDEX512]++;
-				else									 preamble_count[INDEX512]=0;
+				else									 preamble_count[INDEX512] = 0;
 
 				if (preamble_count[INDEX512] > 50)
 				{
-					preamble_count[INDEX512]=0;
+					preamble_count[INDEX512] = 0;
 
 					if (Profile.pocsag_512)
 					{
 						BaudRate = 512;							// used by audio_to_bits
-						display_showmo(MODE_POCSAG+MODE_P512);
+						display_showmo(MODE_POCSAG + MODE_P512);
 						pocsag_baud_rate = STAT_POCSAG512;	//used by POCSAG routines
 						nSamples = 0;
-						pocbit=1300;
-						config_index=INDEX512;
+						pocbit = 1300;
+						config_index = INDEX512;
 						clkt_hi = COURSE_CLKT_HI;
 						clkt_lo = COURSE_CLKT_LO;
 						continue;
 					}
 				}
-        
+
 				// Check for 1200 Preamble.
 				if ((nSamples > 28) && (nSamples < 44)) preamble_count[INDEX1200]++;
-				else									preamble_count[INDEX1200]=0;
+				else									preamble_count[INDEX1200] = 0;
 
 				if (preamble_count[INDEX1200] > 50)	// Found  1200 POCSAG?
 				{
-					preamble_count[INDEX1200]=0;
+					preamble_count[INDEX1200] = 0;
 					if (Profile.pocsag_1200)
 					{
 						BaudRate = 1200;
-						display_showmo(MODE_POCSAG+MODE_P1200);
+						display_showmo(MODE_POCSAG + MODE_P1200);
 						pocsag_baud_rate = STAT_POCSAG1200;
 						nSamples = 0;
-						pocbit=1250;
-						config_index=INDEX1200;
+						pocbit = 1250;
+						config_index = INDEX1200;
 						continue;
 					}
 				}
 
 				// Check for 2400 Preamble.
 				if ((nSamples > 14) && (nSamples < 22)) preamble_count[INDEX2400]++;
-				else									preamble_count[INDEX2400]=0;
+				else									preamble_count[INDEX2400] = 0;
 
 				if (preamble_count[INDEX2400] > 50)	// Found  2400 POCSAG?
 				{
-					preamble_count[INDEX2400]=0;
+					preamble_count[INDEX2400] = 0;
 					if (Profile.pocsag_2400)
 					{
 						BaudRate = 2400;
-						display_showmo(MODE_POCSAG+MODE_P2400);
+						display_showmo(MODE_POCSAG + MODE_P2400);
 						pocsag_baud_rate = STAT_POCSAG2400;
 						nSamples = 0;
-						pocbit=1250;
-						config_index=INDEX2400;
+						pocbit = 1250;
+						config_index = INDEX2400;
 						continue;
 					}
-				}                
+				}
 			}
-			nSamples=0;
+			nSamples = 0;
 		}
 
 		/***endof preamble search****/
@@ -549,8 +548,8 @@ void Audio_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 					WatchCtr = atb_ctr + (WatchStep / 2);
 					WatchCtr += atb_sample_offset[config_index];
 				}
-			}             
-			atb_len=0;
+			}
+			atb_len = 0;
 		}
 		else if ((atb_value > (atb_center[config_index] + atb_threshold[config_index])) && (atb_bit == low_audio))
 		{
@@ -562,14 +561,14 @@ void Audio_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 				WatchCtr = atb_ctr + (WatchStep / 2);
 				WatchCtr += atb_sample_offset[config_index];
 			}
-			atb_len=0;
+			atb_len = 0;
 		}
 
 		// If found 1600/3200 crossover point, increment counter to skip unreadable data.
 		// This unreadble data consists of around 80 bits of (3200 baud) two/four level data.
 
 		if (cross_over)
-		{                
+		{
 			if (skipped_sc < 39) frame_flex(3);		// If skipping unreadable data, still need to keep flex routines happy!
 			if (skipped_sc < 1080)					// Works out to around 40 "1600 bits" or 80 "3200 bits".
 			{
@@ -599,7 +598,7 @@ void Audio_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 					display_showmo(MODE_IDLE);
 					pocsag.frame('X');      // Reset pocsag routine.
 					BaudRate = 1600;        // Allow flex sync-ups again.
-					config_index=INDEX1600;
+					config_index = INDEX1600;
 				}
 			}
 			else	// Decode FLEX
@@ -636,12 +635,12 @@ void MOBITEX_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 	// Loop through audio buffer turning audio samples into bits.
 	for (atb_ctr = 0; atb_ctr < LenAudioBuffer; atb_ctr++)
 	{
-     // If this is the first time being called or if the baudrate rate has changed
-     // since the last time we were called recalculate WatchStep.
-		if (BaudRate != last_baud_rate) 
+		// If this is the first time being called or if the baudrate rate has changed
+		// since the last time we were called recalculate WatchStep.
+		if (BaudRate != last_baud_rate)
 		{
 			// WatchStep is how often to check for bit in buffer
-			WatchStep = (long double) Profile.audioSampleRate / (long double) BaudRate;
+			WatchStep = (long double)Profile.audioSampleRate / (long double)BaudRate;
 			WatchCtr = -1;
 			last_baud_rate = BaudRate;
 		}
@@ -671,7 +670,7 @@ void MOBITEX_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 		// Resync on 0/1 and 1/0 crossings.
 		// Only resync if last sample count was equal to a single 1/0 bit.
 		if ((atb_value < -1) && (atb_bit == high_audio))
-		{    
+		{
 			atb_bit = low_audio;
 
 			if (((atb_len < WatchStep * 2) &&
@@ -685,8 +684,8 @@ void MOBITEX_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 		{
 			atb_bit = high_audio;
 		}
-		atb_len=0;
-      
+		atb_len = 0;
+
 		// Get sample value and process it if on WatchStep
 		if (WatchCtr - atb_ctr < 1 && WatchCtr != -1)
 		{
@@ -707,7 +706,7 @@ void MOBITEX_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
  *   2.Call the required routine to decode the data bits.
  */
 void ACARS_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
-{ 
+{
 	atb_sig_cnt = 0;
 
 	// Loop through audio buffer turning audio samples into bits.
@@ -732,21 +731,21 @@ void ACARS_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 				UpdateSigInd(1);	// Move signal indicator right 1
 				atb_sig_cnt++;
 			}
-			bMode_IDLE=false;
+			bMode_IDLE = false;
 		}
 		atb_value = val;
 		atb_len++;			// Keep count of number of 1/0 samples.
 
-      
+
 		// Process bit on 1/0 or 0/1 crossing
 		if ((atb_value < 0) && (atb_bit == high_audio))
-		{    
+		{
 			atb_bit = low_audio;
 
 			if (atb_len < 12) continue;   // Check if on full or half wave. Skip if on half wave.
 
-			process_acars_bit=1;				// get bit
-			atb_len=0;
+			process_acars_bit = 1;				// get bit
+			atb_len = 0;
 		}
 		else if ((atb_value > 0) && (atb_bit == low_audio))
 		{
@@ -754,15 +753,15 @@ void ACARS_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 
 			if (atb_len < 12) continue;	// Check if on full or half wave. Skip if on half wave.              
 
-			process_acars_bit=1; // get bit
-			atb_len=0;
+			process_acars_bit = 1; // get bit
+			atb_len = 0;
 		}
 
 		// If here we have a bit to process
 
 		if (process_acars_bit)
 		{
-			process_acars_bit=0;
+			process_acars_bit = 0;
 
 #ifdef AU_ACARS_BIT_TEST
 			if (atb_bit) misc_debug_msg("1");	// Show raw bits.
@@ -784,7 +783,7 @@ void ERMES_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 	{
 		// If this is the first time being called or if the baudrate rate has changed
 		// since the last time we were called recalculate WatchStep.
-		if (BaudRate != last_baud_rate) 
+		if (BaudRate != last_baud_rate)
 		{
 			// WatchStep is how often to check for bit in buffer
 			WatchStep = (long double) Profile.audioSampleRate / (long double) BaudRate;
@@ -817,7 +816,7 @@ void ERMES_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 		// Resync on 0/1 and 1/0 crossings.
 		// Only resync if last sample count was equal to a single 1/0 bit.
 		if ((atb_value < -1) && (atb_bit == high_audio))
-		{    
+		{
 			atb_bit = low_audio;
 
 			if (((atb_len < WatchStep * 2) &&
@@ -833,7 +832,7 @@ void ERMES_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 			atb_bit = high_audio;
 			atb_len=0;
 		}
-      
+
 		// Get sample value and process it if on WatchStep
 		if (WatchCtr - atb_ctr < 1 && WatchCtr != -1)
 		{
@@ -849,34 +848,34 @@ void ERMES_To_Bits(char *lpAudioBuffer, long LenAudioBuffer)
 // Sets the correct audio input configuration based on users selection from Interface dialog.
 void SetAudioConfig(int sac_type)
 {
-	atb_center[INDEX512]  = 0;
+	atb_center[INDEX512] = 0;
 	atb_center[INDEX1200] = 0;
 	atb_center[INDEX1600] = 0;
 	atb_center[INDEX2400] = 0;
 	atb_center[INDEX3200] = 0;
 
-	atb_sample_offset[INDEX512]  = 0;
+	atb_sample_offset[INDEX512] = 0;
 	atb_sample_offset[INDEX1200] = 0;
 	atb_sample_offset[INDEX1600] = 0;
 	atb_sample_offset[INDEX2400] = 0;
 	atb_sample_offset[INDEX3200] = 0;
 
-	switch(sac_type)
+	switch (sac_type)
 	{
-		case 0:       // Custom (3200 set to same as 2400)
-		atb_threshold[INDEX512]  = au_threshold[Profile.audioThreshold[INDEX512]];
+	case 0:       // Custom (3200 set to same as 2400)
+		atb_threshold[INDEX512] = au_threshold[Profile.audioThreshold[INDEX512]];
 		atb_threshold[INDEX1200] = au_threshold[Profile.audioThreshold[INDEX1200]];
 		atb_threshold[INDEX1600] = au_threshold[Profile.audioThreshold[INDEX1600]];
 		atb_threshold[INDEX2400] = au_threshold[Profile.audioThreshold[INDEX2400]];
 		atb_threshold[INDEX3200] = au_threshold[Profile.audioThreshold[INDEX2400]];
 
-		atb_sample_offset[INDEX512]  = au_offset_center[Profile.audioResync[INDEX512]];
+		atb_sample_offset[INDEX512] = au_offset_center[Profile.audioResync[INDEX512]];
 		atb_sample_offset[INDEX1200] = au_offset_center[Profile.audioResync[INDEX1200]];
 		atb_sample_offset[INDEX1600] = au_offset_center[Profile.audioResync[INDEX1600]];
 		atb_sample_offset[INDEX2400] = au_offset_center[Profile.audioResync[INDEX2400]];
 		atb_sample_offset[INDEX3200] = au_offset_center[Profile.audioResync[INDEX2400]];
 
-		atb_center[INDEX512]  = au_offset_center[Profile.audioCentering[INDEX512]];
+		atb_center[INDEX512] = au_offset_center[Profile.audioCentering[INDEX512]];
 		atb_center[INDEX1200] = au_offset_center[Profile.audioCentering[INDEX1200]];
 		atb_center[INDEX1600] = au_offset_center[Profile.audioCentering[INDEX1600]];
 		atb_center[INDEX2400] = au_offset_center[Profile.audioCentering[INDEX2400]];
@@ -885,8 +884,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 7;
 		break;
 
-		case 1:       // Discriminator 1
-		atb_threshold[INDEX512]  = 16;
+	case 1:       // Discriminator 1
+		atb_threshold[INDEX512] = 16;
 		atb_threshold[INDEX1200] = 16;
 		atb_threshold[INDEX1600] = 16;
 		atb_threshold[INDEX2400] = 16;
@@ -895,8 +894,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 11;
 		break;
 
-		case 2:       // Discriminator 2
-		atb_threshold[INDEX512]  = 6;
+	case 2:       // Discriminator 2
+		atb_threshold[INDEX512] = 6;
 		atb_threshold[INDEX1200] = 6;
 		atb_threshold[INDEX1600] = 6;
 		atb_threshold[INDEX2400] = 6;
@@ -905,8 +904,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 6;
 		break;
 
-		case 3:       // Discriminator 3
-		atb_threshold[INDEX512]  = 44;
+	case 3:       // Discriminator 3
+		atb_threshold[INDEX512] = 44;
 		atb_threshold[INDEX1200] = 44;
 		atb_threshold[INDEX1600] = 44;
 		atb_threshold[INDEX2400] = 44;
@@ -915,8 +914,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 15;
 		break;
 
-		case 4:       // Discriminator 4
-		atb_threshold[INDEX512]  = 2;
+	case 4:       // Discriminator 4
+		atb_threshold[INDEX512] = 2;
 		atb_threshold[INDEX1200] = 2;
 		atb_threshold[INDEX1600] = 2;
 		atb_threshold[INDEX2400] = 2;
@@ -925,8 +924,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 4;
 		break;
 
-		case 5:       // Earphone 1
-		atb_threshold[INDEX512]  = 7;
+	case 5:       // Earphone 1
+		atb_threshold[INDEX512] = 7;
 		atb_threshold[INDEX1200] = 7;
 		atb_threshold[INDEX1600] = 7;
 		atb_threshold[INDEX2400] = 7;
@@ -935,8 +934,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 7;
 		break;
 
-		case 6:       // Earphone 2
-		atb_threshold[INDEX512]  = 9;
+	case 6:       // Earphone 2
+		atb_threshold[INDEX512] = 9;
 		atb_threshold[INDEX1200] = 9;
 		atb_threshold[INDEX1600] = 9;
 		atb_threshold[INDEX2400] = 9;
@@ -945,8 +944,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 8;
 		break;
 
-		case 7:       // Earphone 3
-		atb_threshold[INDEX512]  = 14;
+	case 7:       // Earphone 3
+		atb_threshold[INDEX512] = 14;
 		atb_threshold[INDEX1200] = 14;
 		atb_threshold[INDEX1600] = 14;
 		atb_threshold[INDEX2400] = 14;
@@ -955,8 +954,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 9;
 		break;
 
-		case 8:       // Speaker out 1
-		atb_threshold[INDEX512]  = 14;
+	case 8:       // Speaker out 1
+		atb_threshold[INDEX512] = 14;
 		atb_threshold[INDEX1200] = 14;
 		atb_threshold[INDEX1600] = 14;
 		atb_threshold[INDEX2400] = 14;
@@ -965,8 +964,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 10;
 		break;
 
-		case 9:       // Speaker out 2
-		atb_threshold[INDEX512]  = 9;
+	case 9:       // Speaker out 2
+		atb_threshold[INDEX512] = 9;
 		atb_threshold[INDEX1200] = 9;
 		atb_threshold[INDEX1600] = 9;
 		atb_threshold[INDEX2400] = 9;
@@ -975,8 +974,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 8;
 		break;
 
-		case 10:       // Speaker out 3
-		atb_threshold[INDEX512]  = 34;
+	case 10:       // Speaker out 3
+		atb_threshold[INDEX512] = 34;
 		atb_threshold[INDEX1200] = 34;
 		atb_threshold[INDEX1600] = 34;
 		atb_threshold[INDEX2400] = 34;
@@ -985,8 +984,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 14;
 		break;
 
-		case 11:       // Tape/Rec out 1
-		atb_threshold[INDEX512]  = 7;
+	case 11:       // Tape/Rec out 1
+		atb_threshold[INDEX512] = 7;
 		atb_threshold[INDEX1200] = 7;
 		atb_threshold[INDEX1600] = 7;
 		atb_threshold[INDEX2400] = 7;
@@ -995,8 +994,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 7;
 		break;
 
-		case 12:       // Tape/Rec out 2
-		atb_threshold[INDEX512]  = 5;
+	case 12:       // Tape/Rec out 2
+		atb_threshold[INDEX512] = 5;
 		atb_threshold[INDEX1200] = 5;
 		atb_threshold[INDEX1600] = 5;
 		atb_threshold[INDEX2400] = 5;
@@ -1005,8 +1004,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 6;
 		break;
 
-		case 13:       // Tape/Rec out 3
-		atb_threshold[INDEX512]  = 15;
+	case 13:       // Tape/Rec out 3
+		atb_threshold[INDEX512] = 15;
 		atb_threshold[INDEX1200] = 15;
 		atb_threshold[INDEX1600] = 15;
 		atb_threshold[INDEX2400] = 15;
@@ -1015,8 +1014,8 @@ void SetAudioConfig(int sac_type)
 		pre_threshold = 10;
 		break;
 
-		default:
-		atb_threshold[INDEX512]  = 8;
+	default:
+		atb_threshold[INDEX512] = 8;
 		atb_threshold[INDEX1200] = 8;
 		atb_threshold[INDEX1600] = 8;
 		atb_threshold[INDEX2400] = 8;
